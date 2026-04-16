@@ -4,6 +4,7 @@
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from camera import camera
+from thermal_cam import thermal_camera
 
 app = Flask(__name__)
 CORS(app)  # allow React frontend to call these endpoints
@@ -28,7 +29,25 @@ def stream():
         generate(),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
+@app.route('/thermal/stream')
+def thermal_stream():
+    if not thermal_camera.streaming:
+        return jsonify({"error": "Thermal camera not started"}), 503
+    return Response(
+        generate_thermal(),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
 
+
+def generate_thermal():
+    while True:
+        frame = thermal_camera.get_frame()
+        if frame is None:
+            continue
+        yield (
+            b'--frame\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+        )
 # ── Control API ───────────────────────────────────────────────────────
 
 @app.route('/camera/start', methods=['POST'])
@@ -57,7 +76,21 @@ def change_resolution():
 @app.route('/camera/status')
 def status():
     return jsonify(camera.status)
+@app.route('/thermal/start', methods=['POST'])
+def thermal_start():
+    thermal_camera.start()
+    if not thermal_camera.streaming:
+        return jsonify({"ok": False, "error": thermal_camera.error or "Failed to start thermal camera"}), 500
+    return jsonify({"ok": True, "status": thermal_camera.status})
 
+@app.route('/thermal/stop', methods=['POST'])
+def thermal_stop():
+    thermal_camera.stop()
+    return jsonify({"ok": True, "status": thermal_camera.status})
+
+@app.route('/thermal/status')
+def thermal_status():
+    return jsonify(thermal_camera.status)
 # ── Run ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
