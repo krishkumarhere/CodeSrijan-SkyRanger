@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SkyRanger Live Feed</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body style="background:#000;display:flex;justify-content:center;align-items:center;height:100vh;">
+  <img id="video" style="width:80%;border:3px solid #0f0;border-radius:10px;">
+  <script>
+    const socket = io();
+    socket.on('video_frame', data => {
+      document.getElementById('video').src = 'data:image/jpeg;base64,' + data;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "ir_sensor": {
+    "sensor1": {
+      "pin": 17,        
+      "delay": 0.5      
+    }
+  }
+}

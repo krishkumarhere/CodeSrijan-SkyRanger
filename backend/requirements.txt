@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pymavlink
+websockets
+python-dotenv
+sqlalchemy
+psycopg2-binary
+alembic
+board
