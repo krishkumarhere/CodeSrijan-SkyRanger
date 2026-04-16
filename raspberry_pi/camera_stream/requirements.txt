@@ -2,3 +2,5 @@ flask
 flask-cors
 picamera2
 opencv-python
+adafruit-circuitpython-mlx90640
+adafruit-circuitpython-busdevice

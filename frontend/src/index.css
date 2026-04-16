@@ -863,7 +863,9 @@ button {
 }
 
 .camera-main {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
   height: calc(100vh - 80px); /* adjust navbar height */
 }
 
@@ -872,6 +874,10 @@ button {
   height: 100%;
   position: relative;
   overflow: hidden;
+  background: #04070d;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.28);
 
   display: flex;
   justify-content: center;   /* horizontal center */
@@ -967,24 +973,138 @@ button {
 }
 
 .camera-sidebar {
-  width: 200px;
+  width: 300px;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   background: rgba(10,13,19,0.95);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 12px;
+  gap: 10px;
+  padding: 18px 16px;
   overflow-y: auto;
 }
 
 .camera-sidebar-title {
   font-family: "JetBrains Mono", monospace;
-  font-size: 8px;
-  letter-spacing: 0.2em;
+  font-size: 9px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-faint);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.camera-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.camera-action-btn {
+  width: auto;
+  min-width: 120px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.camera-primary-btn,
+.camera-secondary-btn,
+.camera-res-btn {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.camera-action-btn:hover,
+.camera-primary-btn:hover,
+.camera-secondary-btn:hover,
+.camera-res-btn:hover {
+  border-color: rgba(59,130,246,0.22);
+  background: rgba(59,130,246,0.12);
+}
+
+.camera-action-btn.active,
+.camera-primary-btn.active,
+.camera-secondary-btn.active,
+.camera-res-btn.active {
+  background: rgba(59,130,246,0.2);
+  border-color: rgba(59,130,246,0.3);
+  color: #ffffff;
+}
+
+.camera-action-btn:disabled,
+.camera-primary-btn:disabled,
+.camera-secondary-btn:disabled,
+.camera-res-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.camera-resolutions {
+  display: grid;
+  gap: 8px;
+}
+
+.res-label {
+  float: right;
+  font-size: 8px;
+  color: var(--accent);
+}
+
+.camera-feed-footer {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(7,11,18,0.78);
+  border: 1px solid rgba(148,163,184,0.12);
+  border-radius: 16px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.camera-error-card {
+  border: 1px solid rgba(248,113,113,0.3);
+  background: rgba(248,113,113,0.08);
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #ffffff;
+}
+
+.camera-error-title {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
 }
 
 .camera-stat {
