@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 
 const PI_IP = "10.132.78.80"
-const AI_SERVER = "localhost:8001"
+const AI_SERVER = "10.132.78.80:8001"
 const THERMAL_FEED_URL = `http://${PI_IP}:8080/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
 
