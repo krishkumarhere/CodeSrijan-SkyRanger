@@ -4,6 +4,7 @@ import MapPanel from "./MapPanel"
 import SensorPage from "./SensorPage"
 import CameraPage from "./CameraPage"
 import SystemPage from "./SystemPage"
+import MissionPage from "./MissionPage"
 
 const emptyTelemetry = {
   armed: false, flight_mode: "STABILIZE",
@@ -297,6 +298,7 @@ export default function App() {
         {page === "SENSORS" && <SensorPage />}
         {page === "CAMERA" && <CameraPage telemetry={telemetry} />}
         {page === "SYSTEM" && <SystemPage />}
+        {page === "MISSION" && <MissionPage />}
       </div>
 
       <FlightLog logs={logs} />

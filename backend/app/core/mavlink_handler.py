@@ -85,3 +85,70 @@ def get_telemetry() -> dict:
         data['flight_mode'] = None
 
     return data
+
+def upload_mission(waypoints: list):
+    """
+    Upload mission to Pixhawk using existing MAVLink connection.
+    waypoints = [{"lat": ..., "lon": ..., "alt": ...}, ...]
+    """
+    conn = get_connection()
+
+    if conn is None:
+        raise Exception("MAVLink not connected")
+
+    print("[MISSION] Clearing existing mission...")
+
+    # Clear old mission
+    conn.mav.mission_clear_all_send(
+        conn.target_system,
+        conn.target_component
+    )
+
+    ack = conn.recv_match(type="MISSION_ACK", blocking=True, timeout=3)
+    if not ack:
+        raise Exception("Failed to clear mission")
+
+    count = len(waypoints)
+    print(f"[MISSION] Uploading {count} waypoints...")
+
+    # Send count
+    conn.mav.mission_count_send(
+        conn.target_system,
+        conn.target_component,
+        count
+    )
+
+    # Upload each waypoint
+    for i in range(count):
+        req = conn.recv_match(type=['MISSION_REQUEST', 'MISSION_REQUEST_INT'], blocking=True, timeout=3)
+
+        if not req:
+            raise Exception(f"Timeout waiting for waypoint request {i}")
+
+        wp = waypoints[i]
+
+        print(f"[MISSION] Sending WP {i}: {wp}")
+
+        conn.mav.mission_item_int_send(
+            conn.target_system,
+            conn.target_component,
+            seq=i,
+            frame=mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
+            command=mavutil.mavlink.MAV_CMD_NAV_WAYPOINT,
+            current=0,
+            autocontinue=1,
+            param1=0, param2=0, param3=0, param4=0,
+            x=int(wp["lat"] * 1e7),
+            y=int(wp["lon"] * 1e7),
+            z=wp["alt"]
+        )
+
+    # Final ACK
+    ack = conn.recv_match(type="MISSION_ACK", blocking=True, timeout=5)
+
+    if not ack:
+        raise Exception("Mission upload failed (no ACK)")
+
+    print("[MISSION] Upload successful")
+
+    return {"status": "success", "waypoints": count}
