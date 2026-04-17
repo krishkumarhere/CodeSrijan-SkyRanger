@@ -25,9 +25,9 @@ class ThermalCamera:
 
     def start(self):
         print("[THERMAL] Start method entered")
-        with self._lock:
-            self.stop()
+        self.stop()  # stop first without holding the lock to avoid deadlock
 
+        with self._lock:
             print("[THERMAL] Checking dependencies...")
             if adafruit_mlx90640 is None or board is None or busio is None:
                 self.error = "Missing MLX90640 dependencies"
