@@ -211,8 +211,7 @@ export default function CameraPage({ telemetry }) {
       localCapRef.current = null
     }
     // Notify server
-    fetch(`http://${AI_SERVER}/detection/stop`, { method: "POST" }).catch(() => {})
-
+    const AI_SERVER = "localhost:8001"
     setAiActive(false)
     setAiLoading(false)
     setAiFrame(null)

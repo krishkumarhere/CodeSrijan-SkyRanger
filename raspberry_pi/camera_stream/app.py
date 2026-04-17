@@ -78,7 +78,9 @@ def status():
     return jsonify(camera.status)
 @app.route('/thermal/start', methods=['POST'])
 def thermal_start():
+    print("[FLASK] /thermal/start called")
     thermal_camera.start()
+    print(f"[FLASK] Thermal start status: {thermal_camera.status}")
     if not thermal_camera.streaming:
         return jsonify({"ok": False, "error": thermal_camera.error or "Failed to start thermal camera"}), 500
     return jsonify({"ok": True, "status": thermal_camera.status})

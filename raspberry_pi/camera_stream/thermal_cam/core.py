@@ -46,10 +46,21 @@ class ThermalCamera:
                 self.sensor.refresh_rate = adafruit_mlx90640.RefreshRate.REFRESH_4_HZ
                 self.refresh_rate = "4Hz"
 
+                # Prime the sensor by reading the first frame.
+                print("[THERMAL] Priming initial frame...")
+                for attempt in range(10):
+                    try:
+                        self.sensor.getFrame(self._frame)
+                        print(f"[THERMAL] Initial frame captured on attempt {attempt + 1}")
+                        break
+                    except RuntimeError:
+                        print(f"[THERMAL] Initial frame retry {attempt + 1}")
+                        time.sleep(0.2)
+                else:
+                    raise RuntimeError("Failed to capture initial thermal frame")
+
                 self.streaming = True
                 self.error = None
-
-                time.sleep(0.2)
 
                 print("[THERMAL] Sensor started successfully")
 
@@ -78,6 +89,7 @@ class ThermalCamera:
                 except RuntimeError:
                     time.sleep(0.01)
             else:
+                time.sleep(0.05)
                 return None
 
             temp = np.array(self._frame, dtype=np.float32).reshape((24, 32))
