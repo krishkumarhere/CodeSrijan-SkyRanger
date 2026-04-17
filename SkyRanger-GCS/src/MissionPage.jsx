@@ -58,8 +58,8 @@ export default function MissionPage({ telemetry = {}, connected = false }) {
   };
 
   const [aiServerOk, setAiServerOk] = useState(false);
-  const BACKEND_URL = "http://10.132.78.125:8000"; // 🔥 your Pi IP
-  const AI_SERVER_URL = "http://10.132.78.125:8001"; // Pi IP for FastAPI AI server
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+  const AI_SERVER_URL = "http://10.132.78.80:8001"; // Pi IP for FastAPI AI server
 
   useEffect(() => {
     let interval = setInterval(async () => {
