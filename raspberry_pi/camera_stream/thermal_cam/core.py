@@ -24,6 +24,7 @@ class ThermalCamera:
         self.refresh_rate = "2Hz"
 
     def start(self):
+        print("[THERMAL] Start method entered")
         with self._lock:
             self.stop()
 
