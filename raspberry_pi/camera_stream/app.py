@@ -94,6 +94,4 @@ def thermal_status():
 # ── Run ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    # Auto-start camera at default resolution
-    camera.start('640x480')
     app.run(host='0.0.0.0', port=8080, threaded=True)
