@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 
 const PI_IP = "10.132.78.80"
-const AI_SERVER = "10.132.78.80:8001"
+const AI_SERVER = "localhost:8001"
 const THERMAL_FEED_URL = `http://${PI_IP}:8080/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
 
@@ -143,11 +143,7 @@ export default function CameraPage({ telemetry }) {
       const res = await fetch(`http://${AI_SERVER}/detection/start`, { method: "POST" })
       if (!res.ok) throw new Error("Failed to start detection server")
 
-      // 2. Open laptop webcam
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      localCapRef.current = stream
-
-      // 3. Open WebSocket to detection server
+      // 2. Open WebSocket to detection server
       const ws = new WebSocket(`ws://${AI_SERVER}/ws/detection`)
       wsRef.current = ws
 
@@ -155,25 +151,25 @@ export default function CameraPage({ telemetry }) {
         setAiActive(true)
         setAiLoading(false)
 
-        // 4. Every 100ms: grab frame → send to WS
+        // 3. Every 200ms: grab frame from Pi stream → send to WS
         intervalRef.current = setInterval(() => {
           if (ws.readyState !== WebSocket.OPEN) return
 
           const canvas = canvasRef.current
-          const video  = document.getElementById("ai-video-source")
-          if (!canvas || !video) return
+          const img = document.getElementById("pi-stream")
+          if (!canvas || !img) return
 
           const ctx = canvas.getContext("2d")
-          canvas.width  = video.videoWidth  || 640
-          canvas.height = video.videoHeight || 480
-          ctx.drawImage(video, 0, 0)
+          canvas.width  = img.naturalWidth  || 640
+          canvas.height = img.naturalHeight || 480
+          ctx.drawImage(img, 0, 0)
 
           canvas.toBlob(blob => {
             if (blob && ws.readyState === WebSocket.OPEN) {
               blob.arrayBuffer().then(buf => ws.send(buf))
             }
           }, "image/jpeg", 0.8)
-        }, 100)
+        }, 200)  // Slightly slower for Pi stream
       }
 
       ws.onmessage = (evt) => {
@@ -187,6 +183,12 @@ export default function CameraPage({ telemetry }) {
             animal_detected: data.animal_detected,
             detections:      data.detections ?? [],
           })
+          // Trigger survivor alert if person detected
+          if (data.person_detected && !survivorAlert) {
+            setSurvivorAlert(true)
+            // Auto-reset after 5 seconds
+            setTimeout(() => setSurvivorAlert(false), 5000)
+          }
         } catch (e) { console.error("WS parse error", e) }
       }
 
@@ -205,13 +207,7 @@ export default function CameraPage({ telemetry }) {
     if (intervalRef.current)  { clearInterval(intervalRef.current);  intervalRef.current = null }
     // Close WebSocket
     if (wsRef.current)        { wsRef.current.close();               wsRef.current = null }
-    // Stop webcam
-    if (localCapRef.current)  {
-      localCapRef.current.getTracks().forEach(t => t.stop())
-      localCapRef.current = null
-    }
-    // Notify server
-    const AI_SERVER = "localhost:8001"
+    // No webcam to stop since we use Pi stream
     setAiActive(false)
     setAiLoading(false)
     setAiFrame(null)
@@ -234,20 +230,16 @@ export default function CameraPage({ telemetry }) {
   return (
     <div className="camera-page">
 
-      {/* Hidden video element for webcam capture */}
-      <video
-        id="ai-video-source"
-        autoPlay
-        playsInline
-        muted
-        style={{ display: "none" }}
-        ref={el => {
-          if (el && localCapRef.current && el.srcObject !== localCapRef.current)
-            el.srcObject = localCapRef.current
-        }}
-      />
       {/* Hidden canvas for frame extraction */}
       <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      {/* Hidden Pi stream for AI capture */}
+      <img
+        id="pi-stream"
+        style={{ display: "none" }}
+        src={`http://${PI_IP}:8080/stream`}
+        alt="Pi Cam Feed Hidden"
+      />
 
       <div className="camera-main">
 

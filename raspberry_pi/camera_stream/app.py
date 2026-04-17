@@ -21,14 +21,34 @@ def generate():
             b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
         )
 
+@app.route('/')
+def index():
+    return jsonify({
+        "message": "SkyRanger Pi camera server",
+        "routes": {
+            "stream": "/stream",
+            "camera_status": "/camera/status",
+            "camera_start": "/camera/start",
+            "camera_stop": "/camera/stop",
+            "camera_resolution": "/camera/resolution",
+            "thermal_stream": "/thermal/stream",
+        }
+    })
+
+
 @app.route('/stream')
 def stream():
     if not camera.streaming:
-        return jsonify({"error": "Camera not started"}), 503
+        camera.start(camera.resolution)
+        if not camera.streaming:
+            return jsonify({"error": "Camera not started"}), 503
+
     return Response(
         generate(),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
+
+
 @app.route('/thermal/stream')
 def thermal_stream():
     if not thermal_camera.streaming:

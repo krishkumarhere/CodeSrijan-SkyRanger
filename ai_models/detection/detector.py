@@ -133,3 +133,44 @@ class HumanDetector:
             "mode": mode,
             "detections": detections,
         }
+
+
+if __name__ == "__main__":
+    # Test with webcam or image
+    import numpy as np
+
+    detector = HumanDetector()
+    detector.load()
+
+    # Try webcam first
+    cap = cv2.VideoCapture(0)
+    if cap.isOpened():
+        print("Testing with webcam... Press 'q' to quit")
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            result = detector.detect(frame)
+            cv2.imshow("Detection", result["annotated_frame"])
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        cap.release()
+        cv2.destroyAllWindows()
+    else:
+        print("No webcam found, testing with dummy frame...")
+        # Create a dummy frame (640x480 RGB)
+        dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        cv2.putText(dummy_frame, "TEST FRAME", (200, 240), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
+
+        result = detector.detect(dummy_frame)
+        print("Detection test passed!")
+        print(f"Person detected: {result['person_detected']}")
+        print(f"Animal detected: {result['animal_detected']}")
+        print(f"Action: {result['action']}")
+        print(f"Mode: {result['mode']}")
+        print(f"Detections: {len(result['detections'])}")
+
+    detector.unload()
