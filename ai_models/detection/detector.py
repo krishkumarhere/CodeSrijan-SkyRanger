@@ -1,9 +1,14 @@
 # ai_models/detection/detector.py
 import cv2
 import time
+import os
 import platform
 import numpy as np
 from ultralytics import YOLO
+
+# Resolve model path relative to this file
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_MODEL_PATH = os.path.join(_THIS_DIR, "yolov8n.pt")
 
 ACTIONS = ["forward", "left", "right", "hover"]
 
@@ -75,7 +80,7 @@ class HumanDetector:
     Lazy-loads the model on first call to detect().
     """
 
-    def __init__(self, model_path: str = "ai_models/detection/yolov8n.pt", conf: float = 0.4):
+    def __init__(self, model_path: str = _DEFAULT_MODEL_PATH, conf: float = 0.4):
         self.model_path = model_path
         self.conf = conf
         self._model = None
@@ -205,7 +210,7 @@ class HumanDetector:
         action = self._navigator.decide(highest_priority, zone)
 
         # Simulate MAVLink command
-        mavlink_cmd = self._simulate_mavlink_command(action)
+        mavlink_cmd = _simulate_mavlink_command(action)
 
         # Update counters
         if highest_priority:

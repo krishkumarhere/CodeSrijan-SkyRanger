@@ -87,14 +87,28 @@ export default function CameraPage({ telemetry }) {
   }
 
   async function handleResolutionChange(res) {
+    if (aiActive) stopAiDetection()  // Stop AI before changing resolution
+    
     setLoading(true); setResolution(res)
     try {
+      // Stop camera first
+      await fetch(`http://${PI_IP}:8080/camera/stop`, { method: "POST" })
+      await new Promise(r => setTimeout(r, 1000))  // Wait for full stop
+      
+      // Then change resolution
       await fetch(`http://${PI_IP}:8080/camera/resolution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolution: res })
       })
+      
+      // Wait for full restart
+      await new Promise(r => setTimeout(r, 1500))
+      
+      // Force reload both streams
       setStreamKey(k => k + 1)
+      setStreamOk(true)
+      setStreaming(true)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -165,9 +179,16 @@ export default function CameraPage({ telemetry }) {
           ctx.drawImage(img, 0, 0)
 
           canvas.toBlob(blob => {
-            if (blob && ws.readyState === WebSocket.OPEN) {
-              blob.arrayBuffer().then(buf => ws.send(buf))
-            }
+            if (!blob) return
+            blob.arrayBuffer().then(buf => {
+              if (ws.readyState === WebSocket.OPEN) {
+                try {
+                  ws.send(buf)
+                } catch (err) {
+                  console.error("WS send error:", err)
+                }
+              }
+            })
           }, "image/jpeg", 0.8)
         }, 200)  // Slightly slower for Pi stream
       }
@@ -193,7 +214,7 @@ export default function CameraPage({ telemetry }) {
       }
 
       ws.onerror = (e) => { console.error("WS error", e); stopAiDetection() }
-      ws.onclose = ()  => { if (aiActive) stopAiDetection() }
+      ws.onclose = ()  => { stopAiDetection() }
 
     } catch (e) {
       console.error("AI Detection start error:", e)
@@ -224,7 +245,7 @@ export default function CameraPage({ telemetry }) {
 
   const showThermalStream = thermalActive
   const showPiStream  = streamOk && streaming && !aiActive && !thermalActive
-  const showAiStream  = aiActive && aiFrame && !thermalActive
+  const showAiStream  = aiActive && !thermalActive
   const showError     = !aiActive && !thermalActive && (!streamOk || !streaming)
 
   return (
@@ -233,12 +254,18 @@ export default function CameraPage({ telemetry }) {
       {/* Hidden canvas for frame extraction */}
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {/* Hidden Pi stream for AI capture */}
+      {/* Hidden Pi stream for AI capture - stays loaded but invisible */}
       <img
         id="pi-stream"
-        style={{ display: "none" }}
+        crossOrigin="anonymous"
         src={`http://${PI_IP}:8080/stream`}
         alt="Pi Cam Feed Hidden"
+        style={{
+          width: "1px",
+          height: "1px",
+          opacity: 0,
+          pointerEvents: "none",
+        }}
       />
 
       <div className="camera-main">
@@ -278,6 +305,7 @@ export default function CameraPage({ telemetry }) {
             <img
               key={streamKey}
               className="camera-feed"
+              crossOrigin="anonymous"
               src={`http://${PI_IP}:8080/stream`}
               alt="Pi Cam Feed"
               onError={() => { if (streaming) setStreamOk(false) }}
@@ -286,19 +314,31 @@ export default function CameraPage({ telemetry }) {
 
           {/* AI annotated feed */}
           {showAiStream && (
-            <img
-              className="camera-feed"
-              src={`data:image/jpeg;base64,${aiFrame}`}
-              alt="AI Detection Feed"
-            />
+            aiFrame ? (
+              <img
+                className="camera-feed"
+                src={`data:image/jpeg;base64,${aiFrame}`}
+                alt="AI Detection Feed"
+              />
+            ) : (
+              <img
+                key={streamKey}
+                className="camera-feed"
+                crossOrigin="anonymous"
+                src={`http://${PI_IP}:8080/stream`}
+                alt="Pi Cam Feed"
+                onError={() => { if (streaming) setStreamOk(false) }}
+              />
+            )
           )}
 
           {showThermalStream && (
-            <img
+            <video
               key={thermalKey}
               className="camera-feed"
               src={`${THERMAL_FEED_URL}?t=${Date.now()}`}
-              alt="Thermal Feed"
+              autoPlay
+              muted
               onError={() => setThermalError("Unable to load thermal stream")}
             />
           )}
