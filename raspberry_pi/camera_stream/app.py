@@ -91,7 +91,16 @@ def thermal_stop():
 @app.route('/thermal/status')
 def thermal_status():
     return jsonify(thermal_camera.status)
+
+@app.route('/thermal/test')
+def thermal_test():
+    try:
+        thermal_camera.start()
+        return jsonify({"status": thermal_camera.status})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 # ── Run ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, threaded=True)
+    app.run(host='0.0.0.0', port=8080, threaded=True)   

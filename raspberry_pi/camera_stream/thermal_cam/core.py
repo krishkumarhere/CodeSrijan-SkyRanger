@@ -27,20 +27,23 @@ class ThermalCamera:
         with self._lock:
             self.stop()
 
+            print("[THERMAL] Checking dependencies...")
             if adafruit_mlx90640 is None or board is None or busio is None:
                 self.error = "Missing MLX90640 dependencies"
+                print(f"[THERMAL] ERROR: {self.error}")
                 self.streaming = False
                 return
 
             try:
-                print("[THERMAL] Initializing sensor...")
-
+                print("[THERMAL] Initializing I2C...")
                 i2c = busio.I2C(board.SCL, board.SDA)
+                print("[THERMAL] Creating MLX90640 sensor...")
                 self.sensor = adafruit_mlx90640.MLX90640(i2c)
 
                 # 🔥 Stable refresh rate
-                self.sensor.refresh_rate = adafruit_mlx90640.RefreshRate.REFRESH_2_HZ
-                self.refresh_rate = "2Hz"
+                print("[THERMAL] Setting refresh rate...")
+                self.sensor.refresh_rate = adafruit_mlx90640.RefreshRate.REFRESH_4_HZ
+                self.refresh_rate = "4Hz"
 
                 self.streaming = True
                 self.error = None
