@@ -78,9 +78,17 @@ async def detection_ws(websocket: WebSocket):
             await websocket.send_json({
                 "frame": frame_b64,
                 "person_detected": result["person_detected"],
+                "vehicle_detected": result["vehicle_detected"],
                 "animal_detected": result["animal_detected"],
                 "action": result["action"],
                 "mode": result["mode"],
+                "zone": result["zone"],
+                "mission_state": result["mission_state"],
+                "mavlink_cmd": result["mavlink_cmd"],
+                "failure_reason": result["failure_reason"],
+                "inference_time_ms": result["inference_time_ms"],
+                "total_time_ms": result["total_time_ms"],
+                "stability_counter": result["stability_counter"],
                 "detections": result["detections"],
             })
 
