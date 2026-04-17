@@ -92,12 +92,20 @@ def thermal_stop():
 def thermal_status():
     return jsonify(thermal_camera.status)
 
+@app.route('/thermal/ping')
+def thermal_ping():
+    return jsonify({"thermal_loaded": True, "status": thermal_camera.status})
+
 @app.route('/thermal/test')
 def thermal_test():
+    print("[FLASK] Thermal test called")
     try:
+        print("[FLASK] Starting thermal camera...")
         thermal_camera.start()
+        print("[FLASK] Thermal camera started")
         return jsonify({"status": thermal_camera.status})
     except Exception as e:
+        print(f"[FLASK] Thermal test error: {e}")
         return jsonify({"error": str(e)})
 
 # ── Run ───────────────────────────────────────────────────────────────
