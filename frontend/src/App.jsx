@@ -5,6 +5,7 @@ import SensorPage from "./SensorPage"
 import CameraPage from "./CameraPage"
 import SystemPage from "./SystemPage"
 import MissionPage from "./MissionPage"
+import AboutPage from "./AboutPage"
 
 const emptyTelemetry = {
   armed: false, flight_mode: "STABILIZE",
@@ -66,13 +67,17 @@ function TelemetryPanel({ data, connected }) {
 
       {/* Attitude */}
       <div className="panel-card">
-        <div className="section-label">Attitude</div>
-        {[["Roll", data.roll], ["Pitch", data.pitch], ["Yaw", data.yaw]].map(([label, val]) => (
-          <div key={label} className="data-row">
-            <span className="data-row-key">{label}</span>
-            <span className="data-row-val">{val != null ? `${val} rad` : "—"}</span>
-          </div>
-        ))}
+        <div className="section-label">Altitude</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginTop: "8px" }}>
+          {[["Roll", data.roll], ["Pitch", data.pitch], ["Yaw", data.yaw]].map(([label, val]) => (
+            <div key={label} style={{ background: "rgba(255,255,255,0.03)", padding: "10px 4px", borderRadius: "8px", textAlign: "center" }}>
+              <div style={{ fontSize: "11px", color: "#a1a1aa", marginBottom: "4px" }}>{label}</div>
+              <div style={{ fontSize: "12px", fontFamily: "JetBrains Mono", color: "#e5e7eb" }}>
+                {val != null ? `${val >= 0 ? '+' : ''}${val.toFixed(2)}` : "—"}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Position */}
@@ -298,7 +303,8 @@ export default function App() {
         {page === "SENSORS" && <SensorPage />}
         {page === "CAMERA" && <CameraPage telemetry={telemetry} />}
         {page === "SYSTEM" && <SystemPage />}
-        {page === "MISSION" && <MissionPage />}
+        {page === "MISSION" && <MissionPage telemetry={telemetry} connected={connected} />}
+        {page === "ABOUT" && <AboutPage />}
       </div>
 
       <FlightLog logs={logs} />

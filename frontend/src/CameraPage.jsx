@@ -6,18 +6,18 @@ const THERMAL_FEED_URL = `http://${PI_IP}:8080/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
 
 export default function CameraPage({ telemetry }) {
-  const [time, setTime]           = useState(new Date())
-  const [streamOk, setStreamOk]   = useState(true)
-  const [streaming, setStreaming]  = useState(true)
+  const [time, setTime] = useState(new Date())
+  const [streamOk, setStreamOk] = useState(true)
+  const [streaming, setStreaming] = useState(true)
   const [resolution, setResolution] = useState("640x480")
-  const [loading, setLoading]     = useState(false)
-  const [streamKey, setStreamKey]  = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [streamKey, setStreamKey] = useState(0)
 
   // AI Detection state
-  const [aiActive, setAiActive]         = useState(false)
-  const [aiLoading, setAiLoading]       = useState(false)
-  const [aiFrame, setAiFrame]           = useState(null)   // base64 annotated frame
-  const [aiStatus, setAiStatus]         = useState(null)   // { action, mode, person_detected, animal_detected, detections }
+  const [aiActive, setAiActive] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiFrame, setAiFrame] = useState(null)   // base64 annotated frame
+  const [aiStatus, setAiStatus] = useState(null)   // { action, mode, person_detected, animal_detected, detections }
   const [survivorAlert, setSurvivorAlert] = useState(false)
 
   // Thermal imaging state
@@ -27,10 +27,10 @@ export default function CameraPage({ telemetry }) {
   const [thermalError, setThermalError] = useState(null)
   const [thermalKey, setThermalKey] = useState(0)
 
-  const wsRef        = useRef(null)
-  const localCapRef  = useRef(null)  // MediaStream from laptop webcam
-  const intervalRef  = useRef(null)  // frame-sending interval
-  const canvasRef    = useRef(null)  // hidden canvas for frame capture
+  const wsRef = useRef(null)
+  const localCapRef = useRef(null)  // MediaStream from laptop webcam
+  const intervalRef = useRef(null)  // frame-sending interval
+  const canvasRef = useRef(null)  // hidden canvas for frame capture
 
   // Clock
   useEffect(() => {
@@ -88,23 +88,23 @@ export default function CameraPage({ telemetry }) {
 
   async function handleResolutionChange(res) {
     if (aiActive) stopAiDetection()  // Stop AI before changing resolution
-    
+
     setLoading(true); setResolution(res)
     try {
       // Stop camera first
       await fetch(`http://${PI_IP}:8080/camera/stop`, { method: "POST" })
       await new Promise(r => setTimeout(r, 1000))  // Wait for full stop
-      
+
       // Then change resolution
       await fetch(`http://${PI_IP}:8080/camera/resolution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolution: res })
       })
-      
+
       // Wait for full restart
       await new Promise(r => setTimeout(r, 1500))
-      
+
       // Force reload both streams
       setStreamKey(k => k + 1)
       setStreamOk(true)
@@ -171,10 +171,10 @@ export default function CameraPage({ telemetry }) {
 
           const canvas = canvasRef.current
           const img = document.getElementById("pi-stream")
-          if (!canvas || !img) return
+          if (!canvas || !img || !img.complete || img.naturalWidth === 0) return
 
           const ctx = canvas.getContext("2d")
-          canvas.width  = img.naturalWidth  || 640
+          canvas.width = img.naturalWidth || 640
           canvas.height = img.naturalHeight || 480
           ctx.drawImage(img, 0, 0)
 
@@ -196,13 +196,13 @@ export default function CameraPage({ telemetry }) {
       ws.onmessage = (evt) => {
         try {
           const data = JSON.parse(evt.data)
-          if (data.frame)  setAiFrame(data.frame)
+          if (data.frame) setAiFrame(data.frame)
           setAiStatus({
-            action:          data.action,
-            mode:            data.mode,
+            action: data.action,
+            mode: data.mode,
             person_detected: data.person_detected,
             animal_detected: data.animal_detected,
-            detections:      data.detections ?? [],
+            detections: data.detections ?? [],
           })
           // Trigger survivor alert if person detected
           if (data.person_detected && !survivorAlert) {
@@ -214,7 +214,7 @@ export default function CameraPage({ telemetry }) {
       }
 
       ws.onerror = (e) => { console.error("WS error", e); stopAiDetection() }
-      ws.onclose = ()  => { stopAiDetection() }
+      ws.onclose = () => { stopAiDetection() }
 
     } catch (e) {
       console.error("AI Detection start error:", e)
@@ -225,9 +225,9 @@ export default function CameraPage({ telemetry }) {
 
   function stopAiDetection() {
     // Clear frame sender
-    if (intervalRef.current)  { clearInterval(intervalRef.current);  intervalRef.current = null }
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     // Close WebSocket
-    if (wsRef.current)        { wsRef.current.close();               wsRef.current = null }
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null }
     // No webcam to stop since we use Pi stream
     setAiActive(false)
     setAiLoading(false)
@@ -244,9 +244,9 @@ export default function CameraPage({ telemetry }) {
   // ── Render ────────────────────────────────────────────────────────
 
   const showThermalStream = thermalActive
-  const showPiStream  = streamOk && streaming && !aiActive && !thermalActive
-  const showAiStream  = aiActive && !thermalActive
-  const showError     = !aiActive && !thermalActive && (!streamOk || !streaming)
+  const showPiStream = streamOk && streaming && !aiActive && !thermalActive
+  const showAiStream = aiActive && !thermalActive
+  const showError = !aiActive && !thermalActive && (!streamOk || !streaming)
 
   return (
     <div className="camera-page">

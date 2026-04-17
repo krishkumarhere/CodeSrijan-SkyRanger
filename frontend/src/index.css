@@ -160,6 +160,8 @@ button {
   background: linear-gradient(180deg, rgba(10,16,27,0.95), rgba(11,17,27,0.90));
   box-shadow: 0 26px 70px rgba(0,0,0,0.24);
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .telemetry-header {
