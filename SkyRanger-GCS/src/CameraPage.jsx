@@ -11,7 +11,7 @@ export default function CameraPage({ telemetry }) {
   const [streaming, setStreaming] = useState(true)
   const [resolution, setResolution] = useState("640x480")
   const [loading, setLoading] = useState(false)
-  const [streamKey, setStreamKey] = useState(0)
+  const [streamKey, setStreamKey] = useState(Date.now())
 
   // AI Detection state
   const [aiActive, setAiActive] = useState(false)
@@ -25,7 +25,7 @@ export default function CameraPage({ telemetry }) {
   const [thermalLoading, setThermalLoading] = useState(false)
   const [thermalStatus, setThermalStatus] = useState(null)
   const [thermalError, setThermalError] = useState(null)
-  const [thermalKey, setThermalKey] = useState(0)
+  const [thermalKey, setThermalKey] = useState(Date.now())
 
   const wsRef = useRef(null)
   const localCapRef = useRef(null)  // MediaStream from laptop webcam
@@ -258,7 +258,7 @@ export default function CameraPage({ telemetry }) {
       <img
         id="pi-stream"
         crossOrigin="anonymous"
-        src={`http://${PI_IP}:8080/stream`}
+        src={`http://${PI_IP}:8080/stream?k=${streamKey}`}
         alt="Pi Cam Feed Hidden"
         style={{
           width: "1px",
@@ -306,7 +306,7 @@ export default function CameraPage({ telemetry }) {
               key={streamKey}
               className="camera-feed"
               crossOrigin="anonymous"
-              src={`http://${PI_IP}:8080/stream`}
+              src={`http://${PI_IP}:8080/stream?k=${streamKey}`}
               alt="Pi Cam Feed"
               onError={() => { if (streaming) setStreamOk(false) }}
             />
@@ -325,7 +325,7 @@ export default function CameraPage({ telemetry }) {
                 key={streamKey}
                 className="camera-feed"
                 crossOrigin="anonymous"
-                src={`http://${PI_IP}:8080/stream`}
+                src={`http://${PI_IP}:8080/stream?k=${streamKey}`}
                 alt="Pi Cam Feed"
                 onError={() => { if (streaming) setStreamOk(false) }}
               />
@@ -336,7 +336,7 @@ export default function CameraPage({ telemetry }) {
             <video
               key={thermalKey}
               className="camera-feed"
-              src={`${THERMAL_FEED_URL}?t=${Date.now()}`}
+              src={`${THERMAL_FEED_URL}?k=${thermalKey}`}
               autoPlay
               muted
               onError={() => setThermalError("Unable to load thermal stream")}
