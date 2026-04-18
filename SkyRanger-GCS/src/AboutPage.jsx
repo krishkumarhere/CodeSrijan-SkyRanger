@@ -3,8 +3,8 @@ import { Users, Target, Layers, Code, Cpu, ExternalLink } from "lucide-react"
 export default function AboutPage() {
   const team = [
     { name: "Krish Kumar", role: "AI & Full Stack Developer" },
-    { name: "Swastika Kumari", role: "Hardware & Integration" },
-    { name: "Rudra Bishwakarma", role: "Mission Logic & Testing" }
+    { name: "Swastika Kumari", role: "ML Engineer" },
+    { name: "Rudra Bishwakarma", role: "Hardware Engineer" }
   ]
 
   return (
