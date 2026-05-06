@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 
-const PI_IP = "10.132.78.80"
-const AI_SERVER = "localhost:8001"
-const THERMAL_FEED_URL = `http://${PI_IP}:8080/thermal/stream`
+const THERMAL_FEED_URL = `/stream/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
 
 export default function CameraPage({ telemetry }) {
@@ -40,7 +38,7 @@ export default function CameraPage({ telemetry }) {
 
   // Fetch Pi camera status on mount
   useEffect(() => {
-    fetch(`http://${PI_IP}:8080/camera/status`)
+    fetch(`/stream/camera/status`)
       .then(r => r.json())
       .then(d => { setStreaming(d.streaming); setResolution(d.resolution) })
       .catch(() => setStreamOk(false))
@@ -65,7 +63,7 @@ export default function CameraPage({ telemetry }) {
   async function handleStart() {
     setLoading(true)
     try {
-      await fetch(`http://${PI_IP}:8080/camera/start`, {
+      await fetch(`/stream/camera/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolution })
@@ -80,7 +78,7 @@ export default function CameraPage({ telemetry }) {
   async function handleStop() {
     setLoading(true)
     try {
-      await fetch(`http://${PI_IP}:8080/camera/stop`, { method: "POST" })
+      await fetch(`/stream/camera/stop`, { method: "POST" })
       setStreaming(false); setStreamOk(true)
     } catch (e) { console.error(e) }
     setLoading(false)
@@ -92,11 +90,11 @@ export default function CameraPage({ telemetry }) {
     setLoading(true); setResolution(res)
     try {
       // Stop camera first
-      await fetch(`http://${PI_IP}:8080/camera/stop`, { method: "POST" })
+      await fetch(`/stream/camera/stop`, { method: "POST" })
       await new Promise(r => setTimeout(r, 1000))  // Wait for full stop
 
       // Then change resolution
-      await fetch(`http://${PI_IP}:8080/camera/resolution`, {
+      await fetch(`/stream/camera/resolution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolution: res })
@@ -120,7 +118,7 @@ export default function CameraPage({ telemetry }) {
 
     if (thermalActive) {
       try {
-        await fetch(`http://${PI_IP}:8080/thermal/stop`, { method: "POST" })
+        await fetch(`/stream/thermal/stop`, { method: "POST" })
       } catch (e) {
         console.error(e)
       } finally {
@@ -132,7 +130,7 @@ export default function CameraPage({ telemetry }) {
     }
 
     try {
-      const res = await fetch(`http://${PI_IP}:8080/thermal/start`, { method: "POST" })
+      const res = await fetch(`/stream/thermal/start`, { method: "POST" })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Unable to start thermal mode")
       setThermalActive(true)
@@ -154,11 +152,12 @@ export default function CameraPage({ telemetry }) {
     setAiLoading(true)
     try {
       // 1. Tell detection server to load the model
-      const res = await fetch(`http://${AI_SERVER}/detection/start`, { method: "POST" })
+      const res = await fetch(`/ai/detection/start`, { method: "POST" })
       if (!res.ok) throw new Error("Failed to start detection server")
 
       // 2. Open WebSocket to detection server
-      const ws = new WebSocket(`ws://${AI_SERVER}/ws/detection`)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ai/ws/detection`)
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -258,7 +257,7 @@ export default function CameraPage({ telemetry }) {
       <img
         id="pi-stream"
         crossOrigin="anonymous"
-        src={`http://${PI_IP}:8080/stream?k=${streamKey}`}
+        src={`/stream/stream?k=${streamKey}`}
         alt="Pi Cam Feed Hidden"
         style={{
           width: "1px",
@@ -306,7 +305,7 @@ export default function CameraPage({ telemetry }) {
               key={streamKey}
               className="camera-feed"
               crossOrigin="anonymous"
-              src={`http://${PI_IP}:8080/stream?k=${streamKey}`}
+              src={`/stream/stream?k=${streamKey}`}
               alt="Pi Cam Feed"
               onError={() => { if (streaming) setStreamOk(false) }}
             />
@@ -325,7 +324,7 @@ export default function CameraPage({ telemetry }) {
                 key={streamKey}
                 className="camera-feed"
                 crossOrigin="anonymous"
-                src={`http://${PI_IP}:8080/stream?k=${streamKey}`}
+                src={`/stream/stream?k=${streamKey}`}
                 alt="Pi Cam Feed"
                 onError={() => { if (streaming) setStreamOk(false) }}
               />
@@ -494,10 +493,10 @@ export default function CameraPage({ telemetry }) {
                 MODEL: YOLOv8n
               </div>
               <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em", marginTop: 2 }}>
-                SOURCE: LAPTOP CAM
+                SOURCE: PI CAM
               </div>
               <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em", marginTop: 2 }}>
-                SERVER: :{AI_SERVER.split(":")[1]}
+                SERVER: NGINX /ai
               </div>
             </div>
           </div>
@@ -560,7 +559,7 @@ export default function CameraPage({ telemetry }) {
           </div>
           <div className="camera-stat">
             <span className="camera-stat-label">Port</span>
-            <span className="camera-stat-value">{aiActive ? "8001" : "8080"}</span>
+            <span className="camera-stat-value">{aiActive ? "/ai" : "/stream"}</span>
           </div>
           <div className="camera-stat">
             <span className="camera-stat-label">Drone State</span>

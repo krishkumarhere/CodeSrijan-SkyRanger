@@ -63,7 +63,7 @@ class DroneCamera:
             return None
         try:
             frame = self.cam.capture_array()
-            _, buffer = cv2.imencode('.jpg', frame)
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
             return buffer.tobytes()
         except Exception as e:
             print(f"[CAM] Frame error: {e}")

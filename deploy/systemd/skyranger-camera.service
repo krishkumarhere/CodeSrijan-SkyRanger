@@ -1,0 +1,17 @@
+[Unit]
+Description=SkyRanger Flask Camera Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Desktop/CodeSrijan-SkyRanger
+Environment="PATH=/home/pi/Desktop/CodeSrijan-SkyRanger/venv/bin"
+ExecStart=/home/pi/Desktop/CodeSrijan-SkyRanger/venv/bin/python -m camera_server
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/skyranger/camera.log
+StandardError=append:/var/log/skyranger/camera.err
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloudflare Tunnel
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/usr/local/bin/cloudflared tunnel run skyranger
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/skyranger/cloudflared.log
+StandardError=append:/var/log/skyranger/cloudflared.err
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=SkyRanger AI Detection Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Desktop/CodeSrijan-SkyRanger/ai_models/server
+Environment="PATH=/home/pi/Desktop/CodeSrijan-SkyRanger/venv/bin"
+Environment="PYTHONPATH=/home/pi/Desktop/CodeSrijan-SkyRanger"
+ExecStart=/home/pi/Desktop/CodeSrijan-SkyRanger/venv/bin/uvicorn detection_server:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/skyranger/ai.log
+StandardError=append:/var/log/skyranger/ai.err
+
+[Install]
+WantedBy=multi-user.target

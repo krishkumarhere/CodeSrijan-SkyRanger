@@ -116,6 +116,7 @@ function FlightLog({ logs }) {
 export default function App() {
   const [telemetry, setTelemetry] = useState(emptyTelemetry)
   const [connected, setConnected] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
   const [flightPath, setFlightPath] = useState([
     [24.647287, 77.319182],
     [24.647350, 77.319250],
@@ -207,17 +208,72 @@ export default function App() {
     return () => clearInterval(interval)
   }, [simulationActive, fakeWaypoints])
 
+  // Health Check Heartbeat
   useEffect(() => {
-    const ws = new WebSocket("ws://10.132.78.80:8000/ws/telemetry")
-    ws.onopen = () => {
-      setConnected(true)
-      setLogs(p => [...p, { time: new Date().toLocaleTimeString(), msg: "MAVLink stream active" }])
-    }
-    ws.onmessage = (e) => setTelemetry(JSON.parse(e.data))
-    ws.onclose = () => setConnected(false)
-    ws.onerror = (e) => console.error("[WS]", e)
-    return () => ws.close()
-  }, [])
+    let failures = 0;
+    const interval = setInterval(() => {
+      fetch('/api/health')
+        .then(res => {
+          if (!res.ok) throw new Error('Health check failed')
+          failures = 0;
+          setReconnecting(false);
+        })
+        .catch(() => {
+          failures++;
+          if (failures >= 3) {
+            setConnected(false);
+            setReconnecting(true);
+          }
+        });
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // WebSocket with auto-reconnect
+  useEffect(() => {
+    let ws;
+    let reconnectTimeout;
+    let attempt = 0;
+
+    const connectWS = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        setConnected(true);
+        setReconnecting(false);
+        attempt = 0;
+        setLogs(p => [...p, { time: new Date().toLocaleTimeString(), msg: "MAVLink stream active" }]);
+      };
+
+      ws.onmessage = (e) => setTelemetry(JSON.parse(e.data));
+
+      ws.onclose = () => {
+        setConnected(false);
+        setReconnecting(true);
+        attempt++;
+        const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+        reconnectTimeout = setTimeout(connectWS, delay);
+      };
+
+      ws.onerror = (e) => {
+        console.error("[WS]", e);
+        ws.close();
+      };
+    };
+
+    connectWS();
+
+    return () => {
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (telemetry.lat && telemetry.lon) {
@@ -250,9 +306,9 @@ export default function App() {
           ))}
         </div>
 
-        <div className={`conn-status ${connected ? "text-green-400" : "text-red-400"}`}>
-          <div className={`conn-dot ${connected ? "connected" : "disconnected"}`} />
-          {connected ? "CONNECTED" : "DISCONNECTED"}
+        <div className={`conn-status ${connected ? "text-green-400" : reconnecting ? "text-yellow-400" : "text-red-400"}`}>
+          <div className={`conn-dot ${connected ? "connected" : reconnecting ? "reconnecting" : "disconnected"}`} style={reconnecting ? { backgroundColor: '#facc15', boxShadow: '0 0 8px #facc15' } : {}} />
+          {connected ? "CONNECTED" : reconnecting ? "RECONNECTING..." : "DISCONNECTED"}
           <span style={{
             marginLeft: 16,
             padding: "4px 8px",

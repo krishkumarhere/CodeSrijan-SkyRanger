@@ -1,0 +1,17 @@
+[Unit]
+Description=SkyRanger React Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Desktop/CodeSrijan-SkyRanger/SkyRanger-GCS
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/npm run dev -- --port 5173 --host 0.0.0.0
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/skyranger/frontend.log
+StandardError=append:/var/log/skyranger/frontend.err
+
+[Install]
+WantedBy=multi-user.target
