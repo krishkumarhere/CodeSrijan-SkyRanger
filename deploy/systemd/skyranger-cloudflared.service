@@ -5,7 +5,7 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=pi
+User=krish
 ExecStart=/usr/local/bin/cloudflared tunnel run skyranger
 Restart=always
 RestartSec=10
