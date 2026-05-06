@@ -237,7 +237,7 @@ export default function App() {
 
     const connectWS = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
       
       ws = new WebSocket(wsUrl);
 
