@@ -8,12 +8,12 @@ import MissionPage from "./MissionPage"
 import AboutPage from "./AboutPage"
 
 const emptyTelemetry = {
-  armed: false, flight_mode: "STABILIZE",
-  alt: 15.2, vx: 2.1,
-  battery_remaining: 87, battery_voltage: 12.4,
-  satellites: 8, gps_fix: 3,
-  roll: 0.1, pitch: -0.3, yaw: 45.2,
-  lat: 24.647600, lon: 77.319300, // Fake drone position
+  armed: null, flight_mode: null,
+  alt: null, vx: null,
+  battery_remaining: null, battery_voltage: null,
+  satellites: null, gps_fix: null,
+  roll: null, pitch: null, yaw: null,
+  lat: null, lon: null,
 }
 
 function MetricCard({ label, value, unit, warn = false, icon: Icon }) {
@@ -128,85 +128,7 @@ export default function App() {
   const [logs, setLogs] = useState([
     { time: "00:00:00", msg: "System initialized" },
   ])
-  const [currentWaypointIndex, setCurrentWaypointIndex] = useState(0)
-  const [simulationActive, setSimulationActive] = useState(true)
-  const [missionStatus, setMissionStatus] = useState("TAKEOFF")
 
-  // Fake waypoints for demo
-  const fakeWaypoints = [
-    { id: 1, lat: 24.647287, lon: 77.319182, name: "Home Base", alt: 0 },
-    { id: 2, lat: 24.647500, lon: 77.319400, name: "Waypoint 1", alt: 25 },
-    { id: 3, lat: 24.647800, lon: 77.319600, name: "Waypoint 2", alt: 45 },
-    { id: 4, lat: 24.648000, lon: 77.319300, name: "Waypoint 3", alt: 35 },
-    { id: 5, lat: 24.647600, lon: 77.318900, name: "Waypoint 4", alt: 20 },
-  ]
-
-  // Fake drone position for demo (if no real telemetry)
-  const fakeDronePos = { lat: 24.647600, lon: 77.319300 }
-
-  // Simulation effect for demo
-  useEffect(() => {
-    if (!simulationActive) return
-
-    const interval = setInterval(() => {
-      setCurrentWaypointIndex(prev => {
-        const nextIndex = (prev + 1) % fakeWaypoints.length
-        const currentWp = fakeWaypoints[prev]
-        const nextWp = fakeWaypoints[nextIndex]
-
-        // Simulate movement towards next waypoint
-        const progress = Math.random() * 0.1 + 0.05 // Random progress between waypoints
-        const newLat = currentWp.lat + (nextWp.lat - currentWp.lat) * progress
-        const newLon = currentWp.lon + (nextWp.lon - currentWp.lon) * progress
-        const newAlt = currentWp.alt + (nextWp.alt - currentWp.alt) * progress
-
-        // Update telemetry with simulated data
-        setTelemetry(prev => ({
-          ...prev,
-          lat: newLat,
-          lon: newLon,
-          alt: newAlt + (Math.sin(Date.now() * 0.001) * 2), // Add some altitude variation
-          vx: 3 + Math.random() * 2, // Speed variation
-          battery_remaining: Math.max(10, prev.battery_remaining - 0.1), // Battery drain
-          battery_voltage: 12.4 - ((100 - prev.battery_remaining) * 0.02), // Voltage drop with battery
-          satellites: Math.max(6, 8 + Math.floor(Math.random() * 3)),
-          roll: (Math.random() - 0.5) * 10,
-          pitch: (Math.random() - 0.5) * 8,
-          yaw: prev.yaw + (Math.random() - 0.5) * 5,
-          flight_mode: nextIndex === 0 ? "RTL" : nextIndex === 1 ? "AUTO" : "GUIDED",
-          armed: true,
-          gps_fix: 3,
-        }))
-
-        // Update mission status
-        setMissionStatus(prev => {
-          if (nextIndex === 0) return "RTL"
-          if (nextIndex === 1) return "WAYPOINT NAV"
-          if (nextIndex === 2) return "ALTITUDE HOLD"
-          if (nextIndex === 3) return "POSITION HOLD"
-          return "MISSION EXEC"
-        })
-
-        // Add to flight path
-        setFlightPath(prev => {
-          const newPath = [...prev, [newLat, newLon]]
-          return newPath.length > 100 ? newPath.slice(-100) : newPath
-        })
-
-        // Add log entry when reaching waypoint
-        if (Math.random() < 0.1) { // 10% chance per update
-          setLogs(prev => [...prev, {
-            time: new Date().toLocaleTimeString(),
-            msg: `Reached ${nextWp.name}`
-          }])
-        }
-
-        return nextIndex
-      })
-    }, 2000) // Update every 2 seconds
-
-    return () => clearInterval(interval)
-  }, [simulationActive, fakeWaypoints])
 
   // Health Check Heartbeat
   useEffect(() => {
@@ -319,24 +241,8 @@ export default function App() {
             fontFamily: "JetBrains Mono",
             fontWeight: 600
           }}>
-            {missionStatus}
+            {telemetry.flight_mode || "STANDBY"}
           </span>
-          <button
-            onClick={() => setSimulationActive(!simulationActive)}
-            style={{
-              marginLeft: 8,
-              padding: "4px 12px",
-              background: simulationActive ? "#10b981" : "#6b7280",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              fontSize: 11,
-              cursor: "pointer",
-              fontFamily: "JetBrains Mono"
-            }}
-          >
-            {simulationActive ? "⏸️ PAUSE SIM" : "▶️ START SIM"}
-          </button>
         </div>
       </nav>
 
@@ -347,11 +253,11 @@ export default function App() {
             <TelemetryPanel data={telemetry} connected={connected} />
             <div className="map-wrapper">
               <MapPanel
-                lat={telemetry.lat || fakeDronePos.lat}
-                lon={telemetry.lon || fakeDronePos.lon}
+                lat={telemetry.lat}
+                lon={telemetry.lon}
                 flightPath={flightPath}
-                waypoints={fakeWaypoints}
-                currentWaypointIndex={currentWaypointIndex}
+                waypoints={[]}
+                currentWaypointIndex={0}
               />
             </div>
           </div>
@@ -365,30 +271,7 @@ export default function App() {
 
       <FlightLog logs={logs} />
 
-      {/* Simulation Info Panel */}
-      <div style={{
-        position: "fixed",
-        bottom: 20,
-        right: 20,
-        background: "rgba(30,40,60,0.95)",
-        border: "1px solid rgba(59,130,246,0.3)",
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 11,
-        fontFamily: "JetBrains Mono",
-        color: "var(--text-secondary)",
-        zIndex: 1000,
-        backdropFilter: "blur(10px)"
-      }}>
-        <div style={{ fontWeight: 600, color: "#3b82f6", marginBottom: 8 }}>SIMULATION STATUS</div>
-        <div>Waypoint: {currentWaypointIndex + 1}/{fakeWaypoints.length}</div>
-        <div>Mode: {missionStatus}</div>
-        <div>Signal: {85 + Math.floor(Math.random() * 15)}%</div>
-        <div>CPU: {45 + Math.floor(Math.random() * 20)}°C</div>
-        <div style={{ marginTop: 8, fontSize: 9, color: "var(--text-faint)" }}>
-          Demo Mode Active
-        </div>
-      </div>
+
     </div>
   )
 }
