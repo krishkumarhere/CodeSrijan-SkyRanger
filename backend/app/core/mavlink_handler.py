@@ -4,9 +4,21 @@
 
 from pymavlink import mavutil
 from config import MAVLINK_CONNECTION, MAVLINK_BAUD
+import threading
+import time
 
 # Module-level variable — one connection shared across the entire app
 _connection = None
+
+# Global state dictionary updated continuously by the background thread
+_telemetry_state = {
+    'armed': None, 'flight_mode': None,
+    'roll': None, 'pitch': None, 'yaw': None,
+    'lat': None, 'lon': None, 'alt': None,
+    'vx': None, 'vy': None,
+    'battery_voltage': None, 'battery_remaining': None,
+    'satellites': None, 'gps_fix': None
+}
 
 def connect():
     """
@@ -23,6 +35,21 @@ def connect():
     _connection.wait_heartbeat()
     print(f"[MAVLink] Heartbeat received. System ID: {_connection.target_system}")
 
+    # Request all required data streams at 10Hz
+    print("[MAVLink] Requesting data streams at 10Hz...")
+    _connection.mav.request_data_stream_send(
+        _connection.target_system,
+        _connection.target_component,
+        mavutil.mavlink.MAV_DATA_STREAM_ALL,
+        10, # 10Hz
+        1   # 1 = start sending
+    )
+
+    # Start the background listener thread
+    listener_thread = threading.Thread(target=_telemetry_loop, daemon=True)
+    listener_thread.start()
+    print("[MAVLink] Telemetry background listener started.")
+
 def get_connection():
     """
     Returns the active MAVLink connection.
@@ -30,61 +57,53 @@ def get_connection():
     """
     return _connection
 
+def _telemetry_loop():
+    """
+    Background thread that continuously reads MAVLink messages as fast as they arrive
+    and updates the global _telemetry_state dictionary.
+    """
+    global _telemetry_state
+    
+    while True:
+        if _connection is None:
+            time.sleep(0.1)
+            continue
+            
+        msg = _connection.recv_match(blocking=True)
+        if not msg:
+            continue
+            
+        msg_type = msg.get_type()
+        
+        if msg_type == 'ATTITUDE':
+            _telemetry_state['roll']  = round(msg.roll, 3)
+            _telemetry_state['pitch'] = round(msg.pitch, 3)
+            _telemetry_state['yaw']   = round(msg.yaw, 3)
+            
+        elif msg_type == 'GLOBAL_POSITION_INT':
+            _telemetry_state['lat'] = msg.lat / 1e7
+            _telemetry_state['lon'] = msg.lon / 1e7
+            _telemetry_state['alt'] = msg.relative_alt / 1000   # mm → meters
+            _telemetry_state['vx']  = msg.vx / 100              # cm/s → m/s
+            _telemetry_state['vy']  = msg.vy / 100
+            
+        elif msg_type == 'SYS_STATUS':
+            _telemetry_state['battery_voltage']   = msg.voltage_battery / 1000  # mV → V
+            _telemetry_state['battery_remaining'] = msg.battery_remaining        # 0-100%
+            
+        elif msg_type == 'GPS_RAW_INT':
+            _telemetry_state['satellites'] = msg.satellites_visible
+            _telemetry_state['gps_fix']    = msg.fix_type
+            
+        elif msg_type == 'HEARTBEAT':
+            _telemetry_state['armed'] = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
+            _telemetry_state['flight_mode'] = mavutil.mode_string_v10(msg)
+
 def get_telemetry() -> dict:
     """
-    Reads multiple MAVLink message types and returns a single clean dict.
-    Returns empty dict fields as None if message times out — never crashes.
+    Returns a copy of the latest telemetry instantly without blocking.
     """
-    conn = get_connection()
-    data = {}
-
-    # --- ATTITUDE: roll, pitch, yaw in radians ---
-    msg = conn.recv_match(type='ATTITUDE', blocking=True, timeout=1)
-    if msg:
-        data['roll']  = round(msg.roll, 3)
-        data['pitch'] = round(msg.pitch, 3)
-        data['yaw']   = round(msg.yaw, 3)
-    else:
-        data['roll'] = data['pitch'] = data['yaw'] = None
-
-    # --- GPS POSITION ---
-    # MAVLink sends lat/lon multiplied by 1e7 (integer), altitude in mm
-    msg = conn.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=1)
-    if msg:
-        data['lat'] = msg.lat / 1e7
-        data['lon'] = msg.lon / 1e7
-        data['alt'] = msg.relative_alt / 1000   # mm → meters
-        data['vx']  = msg.vx / 100              # cm/s → m/s
-        data['vy']  = msg.vy / 100
-    else:
-        data['lat'] = data['lon'] = data['alt'] = None
-
-    # --- BATTERY ---
-    msg = conn.recv_match(type='SYS_STATUS', blocking=True, timeout=1)
-    if msg:
-        data['battery_voltage']   = msg.voltage_battery / 1000  # mV → V
-        data['battery_remaining'] = msg.battery_remaining        # 0-100%
-    else:
-        data['battery_voltage'] = data['battery_remaining'] = None
-
-    # --- GPS QUALITY ---
-    msg = conn.recv_match(type='GPS_RAW_INT', blocking=True, timeout=1)
-    if msg:
-        data['satellites'] = msg.satellites_visible
-        data['gps_fix']    = msg.fix_type   # 3 = 3D fix (what you want)
-    else:
-        data['satellites'] = data['gps_fix'] = None
-
-    # --- ARM STATUS + FLIGHT MODE ---
-    msg = conn.recv_match(type='HEARTBEAT', blocking=True, timeout=1)
-    if msg:
-        data['armed'] = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
-        data['flight_mode'] = mavutil.mode_string_v10(msg)
-    else:
-        data['armed'] = None
-        data['flight_mode'] = None
-
-    return data
+    return dict(_telemetry_state)
 
 def upload_mission(waypoints: list):
     """
