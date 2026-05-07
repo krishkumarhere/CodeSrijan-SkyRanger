@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react"
 
-const PI_IP = "10.132.78.80"
-const API_PORT = 8000
-const WS_URL = `ws://${PI_IP}:${API_PORT}/ws/system`
-const API_URL = `http://${PI_IP}:${API_PORT}`
+const WS_PROTOCOL = window.location.protocol === "https:" ? "wss" : "ws"
+
+const WS_URL = `${WS_PROTOCOL}://${window.location.host}/ws/system`
+const API_URL = ""
 
 // Circular gauge for CPU temp
 function TempGauge({ value, max = 85 }) {
-  const pct    = Math.min(100, ((value ?? 0) / max) * 100)
+  const pct = Math.min(100, ((value ?? 0) / max) * 100)
   const radius = 30
-  const circ   = 2 * Math.PI * radius
+  const circ = 2 * Math.PI * radius
   const offset = circ - (pct / 100) * circ
-  const color  = value > 70 ? "var(--red)" : value > 60 ? "var(--amber)" : "#4ade80"
+  const color = value > 70 ? "var(--red)" : value > 60 ? "var(--amber)" : "#4ade80"
 
   return (
     <div className="temp-gauge">
@@ -80,17 +80,17 @@ function HardwareCard({ title, icon, specs }) {
 
 // Pages
 const NAV_ITEMS = [
-  { id: "overview",    label: "Overview",      icon: "◈" },
-  { id: "pi",          label: "Raspberry Pi",  icon: "⬡" },
-  { id: "pixhawk",     label: "Pixhawk FC",    icon: "✦" },
-  { id: "gimbal",      label: "Gimbal",        icon: "◎" },
-  { id: "power",       label: "Power System",  icon: "⚡" },
-  { id: "sensors",     label: "Sensors",       icon: "◉" },
-  { id: "comms",       label: "Comms",         icon: "◈" },
+  { id: "overview", label: "Overview", icon: "◈" },
+  { id: "pi", label: "Raspberry Pi", icon: "⬡" },
+  { id: "pixhawk", label: "Pixhawk FC", icon: "✦" },
+  { id: "gimbal", label: "Gimbal", icon: "◎" },
+  { id: "power", label: "Power System", icon: "⚡" },
+  { id: "sensors", label: "Sensors", icon: "◉" },
+  { id: "comms", label: "Comms", icon: "◈" },
 ]
 
 export default function SystemPage() {
-  const [sys, setSys]     = useState({})
+  const [sys, setSys] = useState({})
   const [connected, setConnected] = useState(false)
   const [active, setActive] = useState("overview")
   const [loading, setLoading] = useState(true)
@@ -121,7 +121,7 @@ export default function SystemPage() {
 
     async function fetchSnapshot() {
       try {
-        const res = await fetch(`${API_URL}/system/status`)
+        const res = await fetch(`/system/status`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setSys(data)
@@ -283,10 +283,10 @@ export default function SystemPage() {
                 <div className="hw-card">
                   <div className="hw-card-title">⬡ Runtime</div>
                   {[
-                    ["Uptime",    sys.uptime ?? "—",           "accent"],
-                    ["CPU Freq",  sys.cpu_freq ? `${sys.cpu_freq} MHz` : "—", ""],
-                    ["CPU Cores", sys.cpu_cores ?? "—",        "amber"],
-                    ["Processes", sys.process_count ?? "—",    ""],
+                    ["Uptime", sys.uptime ?? "—", "accent"],
+                    ["CPU Freq", sys.cpu_freq ? `${sys.cpu_freq} MHz` : "—", ""],
+                    ["CPU Cores", sys.cpu_cores ?? "—", "amber"],
+                    ["Processes", sys.process_count ?? "—", ""],
                   ].map(([k, v, c]) => (
                     <div key={k} className="hw-row">
                       <span className="hw-key">{k}</span>
@@ -298,10 +298,10 @@ export default function SystemPage() {
                 <div className="hw-card">
                   <div className="hw-card-title">◈ Network</div>
                   {[
-                    ["IP Address", PI_IP,                      "accent"],
-                    ["Data Sent",  sys.net_sent ? `${sys.net_sent} MB` : "—", ""],
-                    ["Data Recv",  sys.net_recv ? `${sys.net_recv} MB` : "—", ""],
-                    ["WS Status",  connected ? "ACTIVE" : "OFFLINE", connected ? "green" : "red"],
+                    ["IP Address", PI_IP, "accent"],
+                    ["Data Sent", sys.net_sent ? `${sys.net_sent} MB` : "—", ""],
+                    ["Data Recv", sys.net_recv ? `${sys.net_recv} MB` : "—", ""],
+                    ["WS Status", connected ? "ACTIVE" : "OFFLINE", connected ? "green" : "red"],
                   ].map(([k, v, c]) => (
                     <div key={k} className="hw-row">
                       <span className="hw-key">{k}</span>
@@ -339,105 +339,105 @@ export default function SystemPage() {
           {/* RASPBERRY PI */}
           {active === "pi" && (
             <HardwareCard title="Raspberry Pi 5" icon="⬡" specs={[
-              ["Model",        "Raspberry Pi 5",    "accent"],
-              ["RAM",          "8 GB LPDDR4X",      ""],
-              ["CPU",          "Cortex-A76 4-core", ""],
-              ["CPU Speed",    "2.4 GHz",           "amber"],
-              ["Storage",      "32 GB SD Card",     ""],
-              ["OS",           "Raspberry Pi OS",   ""],
-              ["Python",       "3.13",              ""],
-              ["IP Address",   PI_IP,               "accent"],
-              ["Uptime",       sys.uptime ?? "—",   "green"],
-              ["CPU Temp",     sys.cpu_temp ? `${sys.cpu_temp}°C` : "—",
-                               sys.cpu_temp > 70 ? "red" : "green"],
-              ["CPU Usage",    sys.cpu_usage ? `${sys.cpu_usage}%` : "—", ""],
-              ["RAM Used",     sys.ram_used ? `${sys.ram_used} GB` : "—", ""],
-              ["Disk Used",    sys.disk_used ? `${sys.disk_used} GB` : "—", ""],
-              ["Role",         "Onboard Computer",  "accent"],
+              ["Model", "Raspberry Pi 5", "accent"],
+              ["RAM", "8 GB LPDDR4X", ""],
+              ["CPU", "Cortex-A76 4-core", ""],
+              ["CPU Speed", "2.4 GHz", "amber"],
+              ["Storage", "32 GB SD Card", ""],
+              ["OS", "Raspberry Pi OS", ""],
+              ["Python", "3.13", ""],
+              ["IP Address", PI_IP, "accent"],
+              ["Uptime", sys.uptime ?? "—", "green"],
+              ["CPU Temp", sys.cpu_temp ? `${sys.cpu_temp}°C` : "—",
+                sys.cpu_temp > 70 ? "red" : "green"],
+              ["CPU Usage", sys.cpu_usage ? `${sys.cpu_usage}%` : "—", ""],
+              ["RAM Used", sys.ram_used ? `${sys.ram_used} GB` : "—", ""],
+              ["Disk Used", sys.disk_used ? `${sys.disk_used} GB` : "—", ""],
+              ["Role", "Onboard Computer", "accent"],
             ]} />
           )}
 
           {/* PIXHAWK */}
           {active === "pixhawk" && (
             <HardwareCard title="Pixhawk 2.4.8 FC" icon="✦" specs={[
-              ["Model",         "Pixhawk 2.4.8",        "accent"],
-              ["Processor",     "STM32F427",             ""],
-              ["IMU",           "MPU6000 + LSM303D",     ""],
-              ["Barometer",     "MS5611",                ""],
-              ["Connection",    "USB / MAVLink",         "amber"],
-              ["Baud Rate",     "57600",                 ""],
-              ["Protocol",      "MAVLink v2",            "accent"],
-              ["Firmware",      "ArduCopter",            ""],
-              ["Frame Type",    "Hexacopter (+)",        ""],
-              ["GPS",           "External M8N",          "green"],
-              ["RC Input",      "PWM / SBUS",            ""],
-              ["Telemetry",     "/dev/ttyACM0",          "accent"],
+              ["Model", "Pixhawk 2.4.8", "accent"],
+              ["Processor", "STM32F427", ""],
+              ["IMU", "MPU6000 + LSM303D", ""],
+              ["Barometer", "MS5611", ""],
+              ["Connection", "USB / MAVLink", "amber"],
+              ["Baud Rate", "57600", ""],
+              ["Protocol", "MAVLink v2", "accent"],
+              ["Firmware", "ArduCopter", ""],
+              ["Frame Type", "Hexacopter (+)", ""],
+              ["GPS", "External M8N", "green"],
+              ["RC Input", "PWM / SBUS", ""],
+              ["Telemetry", "/dev/ttyACM0", "accent"],
             ]} />
           )}
 
           {/* GIMBAL */}
           {active === "gimbal" && (
             <HardwareCard title="Custom 3-Axis Gimbal" icon="◎" specs={[
-              ["Type",          "3-Axis Stabilized",     "accent"],
-              ["Design",        "Custom Built",          "amber"],
-              ["Axis 1",        "Roll — Servo",          ""],
-              ["Axis 2",        "Pitch — Servo",         ""],
-              ["Axis 3",        "Yaw — Servo",           ""],
-              ["Controller",    "ESP32",                 "accent"],
-              ["Camera Mount",  "Pi Cam 3 (IMX708)",     ""],
-              ["Control",       "PWM via ESP32",         ""],
-              ["Protocol",      "GPIO / PWM",            ""],
-              ["Stabilization", "Active (3-axis)",       "green"],
+              ["Type", "3-Axis Stabilized", "accent"],
+              ["Design", "Custom Built", "amber"],
+              ["Axis 1", "Roll — Servo", ""],
+              ["Axis 2", "Pitch — Servo", ""],
+              ["Axis 3", "Yaw — Servo", ""],
+              ["Controller", "ESP32", "accent"],
+              ["Camera Mount", "Pi Cam 3 (IMX708)", ""],
+              ["Control", "PWM via ESP32", ""],
+              ["Protocol", "GPIO / PWM", ""],
+              ["Stabilization", "Active (3-axis)", "green"],
             ]} />
           )}
 
           {/* POWER */}
           {active === "power" && (
             <HardwareCard title="Power System" icon="⚡" specs={[
-              ["Battery",       "LiPo (Arranging)",      "amber"],
-              ["Backup",        "Power Bank",            ""],
-              ["Buck Conv.",    "5V / 3A Step-Down",     "accent"],
-              ["Pi Supply",     "5V via Buck Conv.",     "green"],
-              ["Pixhawk",       "5V via BEC",            "green"],
-              ["Servo Power",   "5V Rail",               ""],
-              ["ESC",           "30A × 6",               ""],
-              ["Motor KV",      "TBD",                   ""],
-              ["Prop Size",     "TBD",                   ""],
+              ["Battery", "LiPo (Arranging)", "amber"],
+              ["Backup", "Power Bank", ""],
+              ["Buck Conv.", "5V / 3A Step-Down", "accent"],
+              ["Pi Supply", "5V via Buck Conv.", "green"],
+              ["Pixhawk", "5V via BEC", "green"],
+              ["Servo Power", "5V Rail", ""],
+              ["ESC", "30A × 6", ""],
+              ["Motor KV", "TBD", ""],
+              ["Prop Size", "TBD", ""],
             ]} />
           )}
 
           {/* SENSORS */}
           {active === "sensors" && (
             <HardwareCard title="Sensor Suite" icon="◉" specs={[
-              ["DHT11",         "Temp + Humidity",       "accent"],
-              ["DHT11 Pin",     "GPIO 4",                ""],
-              ["Vibration",     "SW-420",                "accent"],
-              ["Vibration Pin", "GPIO 23",               ""],
-              ["PIR",           "AM312 (Downward)",      "accent"],
-              ["PIR Pin",       "GPIO 24",               ""],
-              ["PIR Range",     "~7 meters",             "amber"],
-              ["MLX Thermal",   "Heatsink Monitor",      "accent"],
-              ["LiDAR",         "Planned",               ""],
-              ["GPS",           "M8N via Pixhawk",       "green"],
-              ["Barometer",     "MS5611 via Pixhawk",    "green"],
-              ["IMU",           "MPU6000 via Pixhawk",   "green"],
+              ["DHT11", "Temp + Humidity", "accent"],
+              ["DHT11 Pin", "GPIO 4", ""],
+              ["Vibration", "SW-420", "accent"],
+              ["Vibration Pin", "GPIO 23", ""],
+              ["PIR", "AM312 (Downward)", "accent"],
+              ["PIR Pin", "GPIO 24", ""],
+              ["PIR Range", "~7 meters", "amber"],
+              ["MLX Thermal", "Heatsink Monitor", "accent"],
+              ["LiDAR", "Planned", ""],
+              ["GPS", "M8N via Pixhawk", "green"],
+              ["Barometer", "MS5611 via Pixhawk", "green"],
+              ["IMU", "MPU6000 via Pixhawk", "green"],
             ]} />
           )}
 
           {/* COMMS */}
           {active === "comms" && (
             <HardwareCard title="Communications" icon="◈" specs={[
-              ["GCS Protocol",  "WebSocket",             "accent"],
-              ["Telemetry",     "MAVLink v2",            "accent"],
-              ["MAVLink Port",  "/dev/ttyACM0",          ""],
-              ["Baud Rate",     "57600",                 ""],
-              ["Network",       "WiFi 802.11",           "green"],
-              ["Pi IP",         PI_IP,                   "accent"],
-              ["Backend Port",  "8000 (FastAPI)",        ""],
-              ["Camera Port",   "8080 (Flask)",          ""],
-              ["DB Port",       "5432 (PostgreSQL)",     ""],
-              ["ESP32",         "Gimbal Control",        "amber"],
-              ["RC Protocol",   "PWM / SBUS",            ""],
+              ["GCS Protocol", "WebSocket", "accent"],
+              ["Telemetry", "MAVLink v2", "accent"],
+              ["MAVLink Port", "/dev/ttyACM0", ""],
+              ["Baud Rate", "57600", ""],
+              ["Network", "WiFi 802.11", "green"],
+              ["Pi IP", PI_IP, "accent"],
+              ["Backend Port", "8000 (FastAPI)", ""],
+              ["Camera Port", "8080 (Flask)", ""],
+              ["DB Port", "5432 (PostgreSQL)", ""],
+              ["ESP32", "Gimbal Control", "amber"],
+              ["RC Protocol", "PWM / SBUS", ""],
             ]} />
           )}
 
