@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react"
-import { Play, Square, Settings, Cpu, Shield, Flame, Activity, Maximize2, Zap, Radio, Target, Clock, AlertCircle } from "lucide-react"
 
 const THERMAL_FEED_URL = `/stream/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
@@ -14,9 +13,22 @@ export default function CameraPage({ telemetry }) {
 
   // AI Detection state
   const [aiActive, setAiActive] = useState(false)
-  const [aiData, setAiData] = useState({ state: "CLEAR", fps: 0, detections: [], status: "offline", resolution: [640, 480] })
-  const aiPollingRef = useRef(null)
-  const containerRef = useRef(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiFrame, setAiFrame] = useState(null)   // base64 annotated frame
+  const [aiStatus, setAiStatus] = useState(null)   // { action, mode, person_detected, animal_detected, detections }
+  const [survivorAlert, setSurvivorAlert] = useState(false)
+
+  // Thermal imaging state
+  const [thermalActive, setThermalActive] = useState(false)
+  const [thermalLoading, setThermalLoading] = useState(false)
+  const [thermalStatus, setThermalStatus] = useState(null)
+  const [thermalError, setThermalError] = useState(null)
+  const [thermalKey, setThermalKey] = useState(Date.now())
+
+  const wsRef = useRef(null)
+  const localCapRef = useRef(null)  // MediaStream from laptop webcam
+  const intervalRef = useRef(null)  // frame-sending interval
+  const canvasRef = useRef(null)  // hidden canvas for frame capture
 
   // Clock
   useEffect(() => {
@@ -24,7 +36,7 @@ export default function CameraPage({ telemetry }) {
     return () => clearInterval(t)
   }, [])
 
-  // Fetch Pi camera status
+  // Fetch Pi camera status on mount
   useEffect(() => {
     fetch(`/stream/camera/status`)
       .then(r => r.json())
@@ -32,34 +44,21 @@ export default function CameraPage({ telemetry }) {
       .catch(() => setStreamOk(false))
   }, [])
 
+  // Cleanup on unmount
   useEffect(() => {
-    if (aiActive) {
-      startPolling()
-    } else {
-      stopPolling()
-    }
-    return () => stopPolling()
-  }, [aiActive])
+    return () => stopAiDetection()
+  }, [])
 
-  function startPolling() {
-    stopPolling()
-    aiPollingRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/ai/latest`)
-        const data = await res.json()
-        setAiData(data)
-      } catch (e) {
-        console.error("AI Poll Error:", e)
-      }
-    }, 300)
-  }
-
-  function stopPolling() {
-    if (aiPollingRef.current) {
-      clearInterval(aiPollingRef.current)
-      aiPollingRef.current = null
+  // Flash survivor alert
+  useEffect(() => {
+    if (aiStatus?.person_detected) {
+      setSurvivorAlert(true)
+      const t = setTimeout(() => setSurvivorAlert(false), 800)
+      return () => clearTimeout(t)
     }
-  }
+  }, [aiStatus?.person_detected])
+
+  // ── Stream controls ──────────────────────────────────────────────
 
   async function handleStart() {
     setLoading(true)
@@ -86,16 +85,25 @@ export default function CameraPage({ telemetry }) {
   }
 
   async function handleResolutionChange(res) {
+    if (aiActive) stopAiDetection()  // Stop AI before changing resolution
+
     setLoading(true); setResolution(res)
     try {
+      // Stop camera first
       await fetch(`/stream/camera/stop`, { method: "POST" })
-      await new Promise(r => setTimeout(r, 1000))
+      await new Promise(r => setTimeout(r, 1000))  // Wait for full stop
+
+      // Then change resolution
       await fetch(`/stream/camera/resolution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolution: res })
       })
+
+      // Wait for full restart
       await new Promise(r => setTimeout(r, 1500))
+
+      // Force reload both streams
       setStreamKey(k => k + 1)
       setStreamOk(true)
       setStreaming(true)
@@ -107,307 +115,464 @@ export default function CameraPage({ telemetry }) {
     if (thermalLoading) return
     setThermalError(null)
     setThermalLoading(true)
+
     if (thermalActive) {
-      try { await fetch(`/stream/thermal/stop`, { method: "POST" }) } 
-      catch (e) { console.error(e) } 
-      finally { setThermalActive(false); setThermalStatus(null) }
+      try {
+        await fetch(`/stream/thermal/stop`, { method: "POST" })
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setThermalActive(false)
+        setThermalStatus(null)
+      }
       setThermalLoading(false)
       return
     }
+
     try {
       const res = await fetch(`/stream/thermal/start`, { method: "POST" })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Unable to start thermal mode")
-      setThermalActive(true); setThermalStatus(data.status); setThermalKey(k => k + 1)
+      setThermalActive(true)
+      setThermalStatus(data.status)
+      setThermalKey(k => k + 1)
     } catch (e) {
-      console.error(e); setThermalError(e.message); setThermalActive(false); setThermalStatus(null)
+      console.error(e)
+      setThermalError(e.message)
+      setThermalActive(false)
+      setThermalStatus(null)
     }
+
     setThermalLoading(false)
   }
 
-  const showThermalStream = thermalActive
-  const showPiStream = streamOk && streaming && !thermalActive
-  const showError = !thermalActive && (!streamOk || !streaming)
+  // ── AI Detection ─────────────────────────────────────────────────
 
-  // Bounding Box Scaling Logic
-  const renderBBoxes = () => {
-    if (!aiActive || !aiData.detections || !containerRef.current || !aiData.resolution) return null;
+  async function startAiDetection() {
+    setAiLoading(true)
+    try {
+      // 1. Tell detection server to load the model
+      const res = await fetch(`/ai/detection/start`, { method: "POST" })
+      if (!res.ok) throw new Error("Failed to start detection server")
 
-    const [srcW, srcH] = aiData.resolution;
-    const { offsetWidth: displayW, offsetHeight: displayH } = containerRef.current;
+      // 2. Open WebSocket to detection server
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ai/ws/detection`)
+      wsRef.current = ws
 
-    const scaleX = displayW / srcW;
-    const scaleY = displayH / srcH;
+      ws.onopen = () => {
+        setAiActive(true)
+        setAiLoading(false)
 
-    return aiData.detections.map((det, i) => {
-      const [x1, y1, x2, y2] = det.bbox;
-      const width = (x2 - x1) * scaleX;
-      const height = (y2 - y1) * scaleY;
-      const left = x1 * scaleX;
-      const top = y1 * scaleY;
+        // 3. Every 200ms: grab frame from Pi stream → send to WS
+        intervalRef.current = setInterval(() => {
+          if (ws.readyState !== WebSocket.OPEN) return
 
-      const colors = {
-        CLEAR: "border-green-500",
-        WARN: "border-yellow-500",
-        ALERT: "border-orange-500",
-        DANGER: "border-red-500"
-      };
+          const canvas = canvasRef.current
+          const img = document.getElementById("pi-stream")
+          if (!canvas || !img || !img.complete || img.naturalWidth === 0) return
 
-      return (
-        <div 
-          key={i}
-          className={`absolute border-2 ${colors[det.zone] || "border-blue-500"} transition-all duration-300`}
-          style={{ left, top, width, height }}
-        >
-          <div className={`absolute -top-6 left-0 px-2 py-0.5 ${det.zone === "DANGER" ? "bg-red-600" : "bg-black/80"} text-white font-mono text-[10px] font-black uppercase whitespace-nowrap`}>
-            {det.label} {(det.conf * 100).toFixed(0)}%
-          </div>
-          {/* Corner accents for bbox */}
-          <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-inherit" />
-          <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-inherit" />
-          <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-inherit" />
-          <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-inherit" />
-        </div>
-      );
-    });
-  };
+          const ctx = canvas.getContext("2d")
+          canvas.width = img.naturalWidth || 640
+          canvas.height = img.naturalHeight || 480
+          ctx.drawImage(img, 0, 0)
 
-  const getRiskColor = (state) => {
-    switch (state) {
-      case "DANGER": return "text-red-500 border-red-500 bg-red-500/10";
-      case "ALERT": return "text-orange-500 border-orange-500 bg-orange-500/10";
-      case "WARN": return "text-yellow-500 border-yellow-500 bg-yellow-500/10";
-      default: return "text-green-500 border-green-500 bg-green-500/10";
+          canvas.toBlob(blob => {
+            if (!blob) return
+            blob.arrayBuffer().then(buf => {
+              if (ws.readyState === WebSocket.OPEN) {
+                try {
+                  ws.send(buf)
+                } catch (err) {
+                  console.error("WS send error:", err)
+                }
+              }
+            })
+          }, "image/jpeg", 0.8)
+        }, 200)  // Slightly slower for Pi stream
+      }
+
+      ws.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data)
+          if (data.frame) setAiFrame(data.frame)
+          setAiStatus({
+            action: data.action,
+            mode: data.mode,
+            person_detected: data.person_detected,
+            animal_detected: data.animal_detected,
+            detections: data.detections ?? [],
+          })
+          // Trigger survivor alert if person detected
+          if (data.person_detected && !survivorAlert) {
+            setSurvivorAlert(true)
+            // Auto-reset after 5 seconds
+            setTimeout(() => setSurvivorAlert(false), 5000)
+          }
+        } catch (e) { console.error("WS parse error", e) }
+      }
+
+      ws.onerror = (e) => { console.error("WS error", e); stopAiDetection() }
+      ws.onclose = () => { stopAiDetection() }
+
+    } catch (e) {
+      console.error("AI Detection start error:", e)
+      setAiLoading(false)
+      stopAiDetection()
     }
-  };
+  }
+
+  function stopAiDetection() {
+    // Clear frame sender
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    // Close WebSocket
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null }
+    // No webcam to stop since we use Pi stream
+    setAiActive(false)
+    setAiLoading(false)
+    setAiFrame(null)
+    setAiStatus(null)
+    setSurvivorAlert(false)
+  }
+
+  function handleAiToggle() {
+    if (aiActive || aiLoading) stopAiDetection()
+    else startAiDetection()
+  }
+
+  // ── Render ────────────────────────────────────────────────────────
+
+  const showThermalStream = thermalActive
+  const showPiStream = streamOk && streaming && !aiActive && !thermalActive
+  const showAiStream = aiActive && !thermalActive
+  const showError = !aiActive && !thermalActive && (!streamOk || !streaming)
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#020617] relative">
-      <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
+    <div className="camera-page">
+
+      {/* Hidden canvas for frame extraction */}
       <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      {/* Hidden Pi stream for AI capture - stays loaded but invisible */}
       <img
         id="pi-stream"
         crossOrigin="anonymous"
         src={`/stream/stream?k=${streamKey}`}
         alt="Pi Cam Feed Hidden"
-        className="hidden absolute pointer-events-none opacity-0"
+        style={{
+          width: "1px",
+          height: "1px",
+          opacity: 0,
+          pointerEvents: "none",
+        }}
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden relative z-10">
-        {/* Feed Area - Redesigned HUD Shell */}
-        <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4 lg:p-8">
-          <div 
-            ref={containerRef}
-            className={`w-full h-full relative rounded-[2.5rem] overflow-hidden border transition-all duration-700 shadow-2xl group/feed ${aiData.state === "DANGER" ? "border-red-500 ring-4 ring-red-500/20" : "border-blue-500/20"}`}
-          >
-            
-            {/* HUD Overlays */}
-            <div className="absolute inset-0 pointer-events-none z-[10] transition-opacity">
-              {/* Corner Brackets */}
-              <div className="absolute top-10 left-10 w-16 h-16 border-t-2 border-l-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
-              <div className="absolute top-10 right-10 w-16 h-16 border-t-2 border-r-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
-              <div className="absolute bottom-10 left-10 w-16 h-16 border-b-2 border-l-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
-              <div className="absolute bottom-10 right-10 w-16 h-16 border-b-2 border-r-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
-              
-              {/* Center Crosshair */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-20">
-                <div className="relative w-40 h-40 flex items-center justify-center">
-                  <div className="absolute w-full h-px bg-white/20" />
-                  <div className="absolute h-full w-px bg-white/20" />
-                  <div className="w-10 h-10 border border-white/20 rounded-full" />
-                </div>
+      <div className="camera-main">
+
+        {/* ── Feed area ── */}
+        <div className="camera-feed-wrapper" style={{
+          outline: survivorAlert ? "2px solid rgba(248,113,113,0.8)" : "none",
+          transition: "outline 0.1s",
+        }}>
+
+          <div className="camera-toolbar">
+            <button
+              className={`camera-action-btn ${!thermalActive && !aiActive ? "active" : ""}`}
+              disabled={loading || aiActive || thermalLoading || thermalActive}
+              onClick={() => { if (!streaming && !loading) handleStart(); }}
+            >
+              LIVE VIEW
+            </button>
+            <button
+              className={`camera-action-btn ${thermalActive ? "active" : ""}`}
+              disabled={thermalLoading || aiLoading}
+              onClick={handleThermalToggle}
+            >
+              {thermalActive ? "EXIT THERMAL" : "ENTER THERMAL"}
+            </button>
+            <button
+              className={`camera-action-btn ${aiActive ? "active" : ""}`}
+              disabled={aiLoading || thermalActive}
+              onClick={handleAiToggle}
+            >
+              {aiActive ? "STOP AI" : "START AI"}
+            </button>
+          </div>
+
+          {/* Pi MJPEG stream */}
+          {showPiStream && (
+            <img
+              key={streamKey}
+              className="camera-feed"
+              crossOrigin="anonymous"
+              src={`/stream/stream?k=${streamKey}`}
+              alt="Pi Cam Feed"
+              onError={() => { if (streaming) setStreamOk(false) }}
+            />
+          )}
+
+          {/* AI annotated feed */}
+          {showAiStream && (
+            aiFrame ? (
+              <img
+                className="camera-feed"
+                src={`data:image/jpeg;base64,${aiFrame}`}
+                alt="AI Detection Feed"
+              />
+            ) : (
+              <img
+                key={streamKey}
+                className="camera-feed"
+                crossOrigin="anonymous"
+                src={`/stream/stream?k=${streamKey}`}
+                alt="Pi Cam Feed"
+                onError={() => { if (streaming) setStreamOk(false) }}
+              />
+            )
+          )}
+
+          {showThermalStream && (
+            <video
+              key={thermalKey}
+              className="camera-feed"
+              src={`${THERMAL_FEED_URL}?k=${thermalKey}`}
+              autoPlay
+              muted
+              onError={() => setThermalError("Unable to load thermal stream")}
+            />
+          )}
+
+          {/* AI loading spinner */}
+          {aiLoading && !aiActive && (
+            <div style={{ textAlign: "center", fontFamily: "JetBrains Mono", fontSize: 12, color: "var(--accent)" }}>
+              <div style={{ fontSize: 24, marginBottom: 12, animation: "spin 1s linear infinite" }}>◌</div>
+              <div>LOADING YOLO MODEL...</div>
+              <div style={{ fontSize: 9, marginTop: 8, color: "var(--text-faint)" }}>yolov8n.pt initializing</div>
+            </div>
+          )}
+
+          {/* Error / stopped state */}
+          {showError && !aiLoading && (
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: "var(--text-faint)", textAlign: "center" }}>
+              <div style={{ fontSize: 24, marginBottom: 12 }}>⬡</div>
+              <div>{streaming ? "STREAM ERROR" : "CAMERA STOPPED"}</div>
+              <div style={{ fontSize: 9, marginTop: 8, color: "var(--text-faint)" }}>
+                {streaming ? "Check camera on Pi" : "Press START to begin streaming"}
               </div>
             </div>
+          )}
 
-            {/* Main Stream Display */}
-            <div className="w-full h-full bg-[#04070d] relative overflow-hidden">
-              {showPiStream && (
-                <img key={streamKey} className="w-full h-full object-cover lg:object-contain bg-black" crossOrigin="anonymous" src={`/stream/stream?k=${streamKey}`} alt="Pi Feed" onError={() => { if (streaming) setStreamOk(false) }} />
-              )}
-              {showThermalStream && (
-                <video key={thermalKey} className="w-full h-full object-cover lg:object-contain bg-black" src={`${THERMAL_FEED_URL}?k=${thermalKey}`} autoPlay muted onError={() => setThermalError("Stream error")} />
-              )}
+          {/* HUD overlay — show on Pi stream OR AI stream */}
+          {(showPiStream || showAiStream) && (
+            <>
+              <div className="scanline" />
+              <div className="camera-hud" />
 
-              {/* AI Overlay Layer */}
-              {aiActive && (
-                <div className="absolute inset-0 z-[20]">
-                  {renderBBoxes()}
+              <div className="camera-overlay-tl">
+                <span className="hud-label">SKYRANGER CAM</span>
+                <span className="hud-text">ALT {telemetry?.alt ?? "—"} m</span>
+                <span className="hud-text">SPD {telemetry?.vx ?? "—"} m/s</span>
+                <span className="hud-text">BAT {telemetry?.battery_remaining ?? "—"}%</span>
+              </div>
+
+              <div className="camera-overlay-tr">
+                <span className="hud-text">{time.toLocaleTimeString()}</span>
+                <span className="hud-text">{telemetry?.flight_mode ?? "—"}</span>
+                <span className="hud-text">{resolution}</span>
+              </div>
+
+              <div className="camera-overlay-bl">
+                <div className="camera-rec">
+                  <div className="camera-rec-dot" />
+                  {thermalActive ? "THERMAL" : aiActive ? "AI LIVE" : "LIVE"}
+                </div>
+              </div>
+
+              <div className="camera-feed-footer">
+                <span>{thermalActive ? "Sensor: MLX90640" : "Sensor: IMX708"}</span>
+                <span>{thermalActive ? `Refresh: ${thermalStatus?.refresh_rate ?? "4Hz"}` : resolution}</span>
+                <span>{time.toLocaleTimeString()}</span>
+              </div>
+
+              {/* AI status overlay — bottom right */}
+              {aiActive && aiStatus && (
+                <div style={{
+                  position: "absolute", bottom: 16, right: 16,
+                  fontFamily: "JetBrains Mono", fontSize: 10,
+                  display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4,
+                }}>
+                  <span style={{
+                    padding: "3px 8px", borderRadius: 4,
+                    background: aiStatus.person_detected ? "rgba(248,113,113,0.2)" : "rgba(125,211,252,0.1)",
+                    border: `1px solid ${aiStatus.person_detected ? "rgba(248,113,113,0.5)" : "rgba(125,211,252,0.2)"}`,
+                    color: aiStatus.person_detected ? "var(--red)" : "var(--accent)",
+                    letterSpacing: "0.1em",
+                  }}>
+                    {aiStatus.person_detected ? "⚠ SURVIVOR DETECTED" : aiStatus.animal_detected ? "◈ ANIMAL" : "◎ SEARCHING"}
+                  </span>
+                  <span style={{ color: "var(--text-faint)", fontSize: 9 }}>
+                    ACTION: {aiStatus.action?.toUpperCase()} &nbsp;|&nbsp; MODE: {aiStatus.mode}
+                  </span>
+                  <span style={{ color: "var(--text-faint)", fontSize: 9 }}>
+                    DETECTIONS: {aiStatus.detections?.length ?? 0}
+                  </span>
                 </div>
               )}
 
-              {/* HUD Dynamic Data */}
-              {(showPiStream || showThermalStream) && (
-                <div className="absolute inset-0 pointer-events-none z-[25] p-10 flex flex-col justify-between">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-2">
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col">
-                        <span className="font-mono text-[8px] text-blue-500/60 uppercase font-bold tracking-widest">Altitude_AGL</span>
-                        <span className="font-outfit text-xl font-black text-white">{telemetry?.alt?.toFixed(1) ?? "0.0"} M</span>
-                      </div>
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col">
-                        <span className="font-mono text-[8px] text-amber-500/60 uppercase font-bold tracking-widest">Velocity_VEC</span>
-                        <span className="font-outfit text-xl font-black text-white">{telemetry?.vx?.toFixed(1) ?? "0.0"} M/S</span>
-                      </div>
-                    </div>
-
-                    {/* AI HUD Stats */}
-                    {aiActive && (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className={`px-6 py-2 rounded-2xl border backdrop-blur-xl font-mono text-xs font-black tracking-[0.2em] animate-in slide-in-from-top-4 duration-500 ${getRiskColor(aiData.state)}`}>
-                          AI_STATE: {aiData.state}
-                        </div>
-                        <div className="bg-black/60 border border-white/5 px-3 py-1 rounded-xl font-mono text-[9px] text-blue-400 font-bold uppercase tracking-widest">
-                          PROCESS_LATENCY: {aiData.fps} FPS
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col items-end gap-2 text-right">
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col">
-                        <span className="font-mono text-[8px] text-gray-500 uppercase font-bold tracking-widest">Temporal_ID</span>
-                        <span className="font-mono text-xs font-black text-white uppercase">{time.toLocaleTimeString([], { hour12: false })}</span>
-                      </div>
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col items-end">
-                        <span className="font-mono text-[8px] text-green-500/60 uppercase font-bold tracking-widest">Link_Quality</span>
-                        <span className="font-mono text-xs font-black text-green-500 uppercase tracking-widest">98.5% STABLE</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-end">
-                    <div className="flex flex-col gap-2">
-                      <div className={`flex items-center gap-3 border px-4 py-2 rounded-2xl backdrop-blur-md transition-all ${aiData.state === "DANGER" ? "bg-red-600 border-red-500 animate-pulse shadow-[0_0_20px_#ef4444]" : "bg-blue-500/20 border-blue-500/30"}`}>
-                        <div className={`w-2 h-2 rounded-full ${aiData.state === "DANGER" ? "bg-white" : "bg-blue-500"} shadow-[0_0_10px_currentColor]`} />
-                        <span className="font-mono text-[10px] font-black text-white tracking-[0.2em] uppercase">
-                          {aiActive ? `AI_SURVEILLANCE_${aiData.state}` : thermalActive ? "THERMAL_IMG" : "LIVE_RF_FEED"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 bg-black/60 border border-white/5 px-6 py-2 rounded-full backdrop-blur-sm">
-                      <div className="flex items-center gap-2">
-                        <Cpu size={12} className="text-blue-500" />
-                        <span className="font-mono text-[9px] text-gray-400 font-bold uppercase tracking-widest">{thermalActive ? "MLX90640" : "SONY_IMX708"}</span>
-                      </div>
-                      <div className="w-px h-3 bg-white/10" />
-                      <span className="font-mono text-[9px] text-blue-400 font-bold uppercase tracking-widest">{resolution} @ 30FPS</span>
-                    </div>
-                  </div>
+              {thermalActive && thermalError && (
+                <div className="camera-error-card" style={{ position: "absolute", bottom: 16, left: 16, right: 16 }}>
+                  <div className="camera-error-title">Thermal mode error</div>
+                  <div>{thermalError}</div>
                 </div>
               )}
+            </>
+          )}
+        </div>
 
-              {/* Danger Alert Center Banner */}
-              {aiActive && aiData.state === "DANGER" && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[30] pointer-events-none">
-                  <div className="bg-red-600 border-2 border-white/50 backdrop-blur-2xl px-12 py-8 rounded-[2rem] flex flex-col items-center gap-4 animate-pulse shadow-[0_0_100px_rgba(239,68,68,0.5)]">
-                    <div className="relative">
-                      <AlertCircle className="text-white" size={64} />
-                    </div>
-                    <span className="font-outfit text-3xl font-black text-white tracking-[0.3em] uppercase text-center drop-shadow-lg">COLLISION_AVOIDANCE</span>
-                    <span className="font-mono text-xs text-white/80 uppercase font-black tracking-widest">IMMEDIATE ACTION REQUIRED</span>
-                  </div>
+        {/* ── Sidebar ── */}
+        <div className="camera-sidebar">
+          <div className="camera-sidebar-title">Stream Control</div>
+
+          {/* Start / Stop Pi stream */}
+          <button
+            onClick={streaming ? handleStop : handleStart}
+            disabled={loading || aiActive || thermalActive}
+            className="camera-primary-btn"
+          >
+            {loading ? "..." : streaming ? "⏹ STOP STREAM" : "▶ START STREAM"}
+          </button>
+
+          {/* ── AI DETECTION BUTTON ── */}
+          <div style={{ marginTop: 8 }}>
+            <div className="camera-sidebar-title">AI Detection</div>
+            <button
+              onClick={handleAiToggle}
+              disabled={aiLoading || thermalActive}
+              className={`camera-secondary-btn ${aiActive ? "active" : ""}`}
+            >
+              {aiLoading ? "⏳ LOADING MODEL..." : aiActive ? "⏹ STOP DETECTION" : "🤖 START AI DETECTION"}
+            </button>
+
+            {/* AI status indicators */}
+            {aiActive && aiStatus && (
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div className="camera-stat">
+                  <span className="camera-stat-label">Mode</span>
+                  <span className="camera-stat-value" style={{ color: "var(--accent)" }}>
+                    {aiStatus.mode}
+                  </span>
                 </div>
-              )}
-
-              {/* Scanline Overlay */}
-              <div className="absolute inset-0 pointer-events-none z-[100] opacity-[0.03] scanlines" />
-            </div>
-
-            {/* Error/Loading Overlays */}
-            {showError && (
-              <div className="absolute inset-0 z-[40] bg-[#020617] flex flex-col items-center justify-center gap-6">
-                <div className="font-outfit text-5xl font-black text-gray-800 tracking-[0.2em] opacity-30 italic">NO SIGNAL</div>
-                <div className="flex flex-col items-center gap-4">
-                  <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">Primary video downlink severed</span>
-                  <button onClick={handleStart} className="px-10 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-mono text-xs font-black tracking-widest transition-all shadow-2xl shadow-blue-500/20">RE-ESTABLISH LINK</button>
+                <div className="camera-stat">
+                  <span className="camera-stat-label">Action</span>
+                  <span className="camera-stat-value" style={{ color: "#4ade80" }}>
+                    {aiStatus.action?.toUpperCase()}
+                  </span>
+                </div>
+                <div className="camera-stat">
+                  <span className="camera-stat-label">Survivors</span>
+                  <span className="camera-stat-value" style={{
+                    color: aiStatus.person_detected ? "var(--red)" : "var(--text-faint)"
+                  }}>
+                    {aiStatus.person_detected ? "⚠ YES" : "NONE"}
+                  </span>
+                </div>
+                <div className="camera-stat">
+                  <span className="camera-stat-label">Objects</span>
+                  <span className="camera-stat-value">{aiStatus.detections?.length ?? 0}</span>
                 </div>
               </div>
             )}
+
+            {/* Model info */}
+            <div style={{
+              marginTop: 6, padding: "6px 8px",
+              background: "var(--bg-card)", borderRadius: 6,
+              border: "1px solid var(--border)",
+            }}>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em" }}>
+                MODEL: YOLOv8n
+              </div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em", marginTop: 2 }}>
+                SOURCE: PI CAM
+              </div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em", marginTop: 2 }}>
+                SERVER: NGINX /ai
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Sidebar Controls - Redesigned Density */}
-        <div className="w-full lg:w-[400px] xl:w-[440px] h-auto lg:h-full bg-[#070b14]/60 border-l border-blue-500/10 overflow-y-auto custom-scrollbar p-8 flex flex-col gap-10 backdrop-blur-xl relative">
-          <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
-          
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-mono text-[9px] tracking-[0.25em] text-blue-500/60 uppercase font-black">Downlink Control</div>
-              <div className="w-2 h-2 rounded-full bg-blue-500/20" />
-            </div>
+          {/* Thermal imaging */}
+          <div style={{ marginTop: 8 }}>
+            <div className="camera-sidebar-title">Thermal Imaging</div>
             <button
-              onClick={streaming ? handleStop : handleStart}
-              disabled={loading || thermalActive}
-              className={`w-full py-5 rounded-[1.5rem] border font-mono text-[11px] font-black tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-300 shadow-xl ${streaming ? "bg-red-600/10 border-red-500/30 text-red-500 hover:bg-red-600/20" : "bg-blue-600/10 border-blue-500/30 text-blue-500 hover:bg-blue-600/20"}`}
+              onClick={handleThermalToggle}
+              disabled={thermalLoading || aiActive}
+              className={`camera-secondary-btn ${thermalActive ? "active" : ""}`}
             >
-              {streaming ? <><Square size={16} fill="currentColor" /> TERMINATE FEED</> : <><Play size={16} fill="currentColor" /> INITIATE DOWNLINK</>}
+              {thermalLoading ? "⏳ LOADING..." : thermalActive ? "⏹ STOP THERMAL" : "🔥 START THERMAL"}
             </button>
-          </section>
-
-          <section>
-            <div className="font-mono text-[9px] tracking-[0.25em] text-blue-500/60 uppercase font-black mb-4 px-2">Visual Processing</div>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => setAiActive(!aiActive)}
-                disabled={thermalActive}
-                className={`flex flex-col items-center gap-4 p-6 rounded-[2rem] border transition-all duration-500 group ${aiActive ? "bg-blue-600/10 border-blue-500/40 text-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
-              >
-                <div className={`p-3 rounded-2xl transition-colors ${aiActive ? "bg-blue-500/20 text-blue-400" : "bg-white/5 text-gray-600 group-hover:text-gray-400"}`}>
-                  <Shield size={24} />
-                </div>
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest">AI_VISION</span>
-              </button>
-              <button
-                onClick={handleThermalToggle}
-                disabled={aiActive}
-                className={`flex flex-col items-center gap-4 p-6 rounded-[2rem] border transition-all duration-500 group ${thermalActive ? "bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
-              >
-                <div className={`p-3 rounded-2xl transition-colors ${thermalActive ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-gray-600 group-hover:text-gray-400"}`}>
-                  <Flame size={24} />
-                </div>
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest">THERMAL_IR</span>
-              </button>
-            </div>
-          </section>
-
-          {aiActive && (
-            <section className="p-6 bg-white/[0.03] border border-white/5 rounded-[2rem] animate-in fade-in zoom-in-95 duration-500">
-              <div className="flex items-center gap-3 mb-6">
-                <Target size={16} className={aiData.state === "DANGER" ? "text-red-500" : "text-blue-500"} />
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest text-white">Detection Matrix</span>
+            {thermalStatus && (
+              <div className="camera-stat" style={{ marginTop: 8 }}>
+                <span className="camera-stat-label">Refresh</span>
+                <span className="camera-stat-value">{thermalStatus.refresh_rate ?? "4Hz"}</span>
               </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center px-4 py-3 bg-black/40 border border-white/5 rounded-xl">
-                  <span className="font-mono text-[9px] text-gray-500 uppercase font-bold">Threat level</span>
-                  <span className={`font-outfit text-sm font-black uppercase ${getRiskColor(aiData.state).split(' ')[0]}`}>{aiData.state}</span>
-                </div>
-                <div className="flex justify-between items-center px-4 py-3 bg-black/40 border border-white/5 rounded-xl">
-                  <span className="font-mono text-[9px] text-gray-500 uppercase font-bold">Active Objects</span>
-                  <span className="font-outfit text-lg font-black text-blue-400">{aiData.detections?.length ?? 0}</span>
-                </div>
-                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${aiData.state === "DANGER" ? "bg-red-500 shadow-[0_0_10px_#ef4444]" : "bg-blue-500"}`} style={{ width: aiData.detections?.length > 0 ? "100%" : "0%" }} />
-                </div>
+            )}
+            {thermalError && (
+              <div className="camera-stat" style={{ marginTop: 8, borderColor: "rgba(248,113,113,0.25)" }}>
+                <span className="camera-stat-label">Error</span>
+                <span className="camera-stat-value" style={{ color: "var(--red)" }}>{thermalError}</span>
               </div>
-            </section>
-          )}
+            )}
+          </div>
 
-          <section className="mt-auto">
-            <div className="font-mono text-[9px] tracking-[0.25em] text-blue-500/60 uppercase font-black mb-4 px-2">Resolution Output</div>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Resolution selector */}
+          <div style={{ marginTop: 8 }}>
+            <div className="camera-sidebar-title">Resolution</div>
+            <div className="camera-resolutions">
               {RESOLUTIONS.map(res => (
                 <button
                   key={res}
                   onClick={() => handleResolutionChange(res)}
                   disabled={loading || !streaming || aiActive || thermalActive}
-                  className={`py-3 px-4 rounded-xl border font-mono text-[10px] font-bold tracking-tight transition-all duration-300 ${resolution === res ? "bg-blue-600/20 border-blue-500/40 text-blue-400 shadow-lg" : "bg-white/[0.02] border-transparent text-gray-600 hover:bg-white/5 hover:text-gray-400"}`}
+                  className={`camera-res-btn ${resolution === res ? "active" : ""}`}
                 >
                   {res}
+                  {resolution === res && <span className="res-label">ACTIVE</span>}
                 </button>
               ))}
             </div>
-          </section>
+          </div>
+
+          {/* Camera info */}
+          <div style={{ marginTop: 8 }}>
+            <div className="camera-sidebar-title">Camera Info</div>
+          </div>
+          <div className="camera-stat">
+            <span className="camera-stat-label">Sensor</span>
+            <span className="camera-stat-value">{thermalActive ? "MLX90640" : "IMX708"}</span>
+          </div>
+          <div className="camera-stat">
+            <span className="camera-stat-label">Status</span>
+            <span className="camera-stat-value" style={{ color: streaming ? "#4ade80" : "var(--red)" }}>
+              {aiActive ? "AI MODE" : streaming ? "STREAMING" : "STOPPED"}
+            </span>
+          </div>
+          <div className="camera-stat">
+            <span className="camera-stat-label">Port</span>
+            <span className="camera-stat-value">{aiActive ? "/ai" : "/stream"}</span>
+          </div>
+          <div className="camera-stat">
+            <span className="camera-stat-label">Drone State</span>
+            <span className="camera-stat-value" style={{ color: "var(--accent)" }}>
+              {telemetry?.flight_mode ?? "—"}
+            </span>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+      `}</style>
     </div>
   )
 }
