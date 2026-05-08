@@ -15,10 +15,10 @@ class DroneCamera:
     def __init__(self):
         self.cam        = None
         self.streaming  = False
-        self.resolution = "640x480"
+        self.resolution = "320x240"
         self._lock      = threading.Lock()
 
-    def start(self, resolution="640x480"):
+    def start(self, resolution="320x240"):
         with self._lock:
             # Always fully stop before restarting
             self._stop_camera()
@@ -59,14 +59,25 @@ class DroneCamera:
             print("[CAM] Stopped")
 
     def get_frame(self):
+        """Returns JPEG encoded bytes for streaming"""
+        frame = self.get_raw_frame()
+        if frame is None:
+            return None
+        try:
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 25])
+            return buffer.tobytes()
+        except Exception as e:
+            print(f"[CAM] JPEG error: {e}")
+            return None
+
+    def get_raw_frame(self):
+        """Returns raw numpy array for AI inference"""
         if not self.streaming or not self.cam:
             return None
         try:
-            frame = self.cam.capture_array()
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
-            return buffer.tobytes()
+            return self.cam.capture_array()
         except Exception as e:
-            print(f"[CAM] Frame error: {e}")
+            print(f"[CAM] Raw frame error: {e}")
             return None
 
     def change_resolution(self, resolution):

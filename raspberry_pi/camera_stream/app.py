@@ -3,19 +3,75 @@
 
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
+import time
 from camera import camera
 from thermal_cam import thermal_camera
+import threading
+try:
+    from ai_core.pipeline.inference_pipeline import InferencePipeline
+    HAS_AI = True
+except ImportError:
+    HAS_AI = False
+    print("[WARN] ai_core not found, running without AI inference")
 
 app = Flask(__name__)
 CORS(app)  # allow React frontend to call these endpoints
 
+# ── AI Inference State ────────────────────────────────────────────────
+latest_detections = {"mode": "IDLE", "detections": [], "timestamp": 0}
+pipeline = InferencePipeline() if HAS_AI else None
+ai_lock = threading.Lock()
+
+def ai_worker():
+    """Background thread for local AI inference"""
+    global latest_detections
+    print("[AI] Worker started")
+    while True:
+        if not HAS_AI or not camera.streaming:
+            time.sleep(1)
+            continue
+            
+        frame = camera.get_raw_frame()
+        if frame is None:
+            time.sleep(0.1)
+            continue
+            
+        try:
+            # Run inference on raw frame
+            result = pipeline.run(frame)
+            
+            with ai_lock:
+                latest_detections = {
+                    "mode": result.mode,
+                    "detections": result.detections,
+                    "timestamp": time.time()
+                }
+        except Exception as e:
+            print(f"[AI] Error: {e}")
+            
+        # Throttling AI to ~2-3 FPS to save Pi CPU
+        time.sleep(0.3)
+
+# Start AI thread
+threading.Thread(target=ai_worker, daemon=True).start()
+
 # ── Stream ────────────────────────────────────────────────────────────
 
 def generate():
+    frame_count = 0
     while True:
+        # 1. Throttling: Sleep to cap FPS
+        time.sleep(0.08)  # Target ~12 FPS capture, ~6 FPS stream after skipping
+        
         frame = camera.get_frame()
         if frame is None:
             break
+            
+        # 2. Frame Skipping: Send every 2nd frame to further reduce bandwidth
+        frame_count += 1
+        if frame_count % 2 != 0:
+            continue
+
         yield (
             b'--frame\r\n'
             b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
@@ -45,7 +101,12 @@ def stream():
 
     return Response(
         generate(),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
+        mimetype='multipart/x-mixed-replace; boundary=frame',
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 
@@ -96,6 +157,12 @@ def change_resolution():
 @app.route('/camera/status')
 def status():
     return jsonify(camera.status)
+
+@app.route('/camera/detections')
+def detections():
+    """Returns latest detections from local AI"""
+    with ai_lock:
+        return jsonify(latest_detections)
 @app.route('/thermal/start', methods=['POST'])
 def thermal_start():
     print("[FLASK] /thermal/start called")
