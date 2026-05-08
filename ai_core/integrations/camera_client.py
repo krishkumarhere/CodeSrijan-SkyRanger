@@ -2,7 +2,7 @@
 
 import cv2
 
-STREAM_URL = "http://10.39.201.80:8080/stream"
+STREAM_URL = "http://127.0.0.1:8080/stream"
 
 
 class CameraClient:
