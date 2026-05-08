@@ -10,6 +10,7 @@ from app.core.database import init_db
 from app.routes.system_ws import router as system_router
 from app.core.system_handler import start_system_loop
 from app.routes.mission import router as mission_router
+from app.routes.ai import router as ai_router
 
 
 @asynccontextmanager
@@ -48,6 +49,7 @@ app.include_router(sensor_router)
 app.include_router(history_router)
 app.include_router(system_router)
 app.include_router(mission_router)
+app.include_router(ai_router)
 
 @app.get("/health")
 def health():

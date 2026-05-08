@@ -3,6 +3,7 @@
 import cv2
 import time
 import logging
+import json 
 from collections import deque
 from enum import Enum, auto
 
@@ -89,69 +90,66 @@ class ObjectAvoidancePipeline:
     # Main Loop
     # ─────────────────────────────────────────
     def run(self):
-
-        log.info("Object avoidance pipeline started")
-
+        log.info("Object avoidance pipeline started (Headless Mode)")
         prev_time = time.time()
+        
+        # Robust path to project root
+        import os
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        JSON_PATH = os.path.join(BASE_DIR, "ai_state.json")
 
         while True:
+            try:
+                frame = self.camera.get_frame()
+                if frame is None:
+                    time.sleep(0.01)
+                    continue
 
-            frame = self.camera.get_frame()
+                h, w = frame.shape[:2]
+                detections = self.detector.detect(frame)
+                filtered, zone = self.process_detections(detections, w, h)
 
-            if frame is None:
-                log.warning("Dropped frame")
-                continue
+                self.zone_buffer.append(zone)
+                confirmed_zone = self.confirm_zone()
+                self.update_state(confirmed_zone)
 
-            h, w = frame.shape[:2]
+                # FPS Calculation
+                now = time.time()
+                self.fps = 1 / max(now - prev_time, 1e-6)
+                prev_time = now
 
-            detections = self.detector.detect(frame)
+                # Prepare Data for Frontend
+                ai_data = {
+                    "state": self.state.name,
+                    "fps": round(self.fps, 1),
+                    "detections": [
+                        {
+                            "label": d["label"],
+                            "conf": d["conf"],
+                            "zone": d["zone"],
+                            "bbox": d["bbox"] # [x1, y1, x2, y2]
+                        } for d in filtered
+                    ],
+                    "resolution": [w, h],
+                    "timestamp": now
+                }
 
-            filtered, zone = self.process_detections(
-                detections,
-                w,
-                h
-            )
+                # Atomic write to avoid partial reads
+                temp_path = JSON_PATH + ".tmp"
+                with open(temp_path, "w") as f:
+                    json.dump(ai_data, f)
+                import os
+                os.replace(temp_path, JSON_PATH)
 
-            self.zone_buffer.append(zone)
+                # Small sleep to yield CPU if necessary
+                time.sleep(0.01)
 
-            confirmed_zone = self.confirm_zone()
+            except Exception as e:
+                log.error(f"Pipeline error: {e}")
+                time.sleep(1)
 
-            self.update_state(confirmed_zone)
-
-            self.draw_overlay(
-                frame,
-                filtered,
-                w,
-                h
-            )
-
-            # FPS
-            now = time.time()
-
-            self.fps = 1 / max(now - prev_time, 1e-6)
-
-            prev_time = now
-
-            cv2.putText(
-                frame,
-                f"FPS: {self.fps:.1f}",
-                (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 255),
-                2
-            )
-
-            cv2.imshow(
-                "SkyRanger AI Avoidance",
-                frame
-            )
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
+    def stop(self):
         self.camera.release()
-        cv2.destroyAllWindows()
 
     # ─────────────────────────────────────────
     # Detection Processing
