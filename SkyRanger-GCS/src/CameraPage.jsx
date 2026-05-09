@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation } from "lucide-react"
 
-const THERMAL_FEED_URL = `/stream/thermal/stream`
+const THERMAL_FEED_URL = `/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
 
 export default function CameraPage({ telemetry }) {
@@ -11,6 +11,9 @@ export default function CameraPage({ telemetry }) {
   const [resolution, setResolution] = useState("640x480")
   const [loading, setLoading] = useState(false)
   const [streamKey, setStreamKey] = useState(Date.now())
+  const [thermalMode, setThermalMode] = useState(false)
+  const [thermalStats, setThermalStats] = useState({ max_temp: 0, avg_temp: 0, hotspots: 0 })
+  const [totalDetections, setTotalDetections] = useState(0)
 
   // AI Detection state - Active by default as requested
   const [aiActive, setAiActive] = useState(true)
@@ -24,11 +27,28 @@ export default function CameraPage({ telemetry }) {
     return () => clearInterval(t)
   }, [])
 
+  // Poll thermal telemetry when in Thermal Mode
+  useEffect(() => {
+    if (!thermalMode) return;
+    const interval = setInterval(() => {
+      fetch(`/thermal/status`)
+        .then(r => r.json())
+        .then(data => {
+          setThermalStats(data)
+          if (data.hotspots > 0) {
+            setTotalDetections(prev => prev + 1)
+          }
+        })
+        .catch(e => console.error("Thermal Poll Error:", e))
+    }, 500)
+    return () => clearInterval(interval)
+  }, [thermalMode])
+
   // Fetch Pi camera status and initiate polling if AI is active
   useEffect(() => {
-    fetch(`/stream/camera/status`)
+    fetch(`/camera/status`)
       .then(r => r.json())
-      .then(d => { setStreaming(d.streaming); setResolution(d.resolution) })
+      .then(d => { setStreaming(d.pi.streaming); setResolution(d.pi.resolution) })
       .catch(() => setStreamOk(false))
   }, [])
 
@@ -45,7 +65,7 @@ export default function CameraPage({ telemetry }) {
     stopPolling()
     aiPollingRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/ai/latest`)
+        const res = await fetch(`/camera/detections`)
         const data = await res.json()
         setAiData(data)
       } catch (e) {
@@ -64,9 +84,9 @@ export default function CameraPage({ telemetry }) {
   async function handleResolutionChange(res) {
     setLoading(true); setResolution(res)
     try {
-      await fetch(`/stream/camera/stop`, { method: "POST" })
+      await fetch(`/camera/stop`, { method: "POST" })
       await new Promise(r => setTimeout(r, 1000))
-      await fetch(`/stream/camera/resolution`, {
+      await fetch(`/camera/resolution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolution: res })
@@ -79,8 +99,8 @@ export default function CameraPage({ telemetry }) {
     setLoading(false)
   }
 
-  const showPiStream = streamOk && streaming
-  const showError = !streamOk || !streaming
+  const showPiStream = streamOk && streaming && !thermalMode
+  const showError = (!streamOk || !streaming) && !thermalMode
 
   // Bounding Box Scaling Logic
   const renderBBoxes = () => {
@@ -107,7 +127,7 @@ export default function CameraPage({ telemetry }) {
       };
 
       return (
-        <div 
+        <div
           key={i}
           className={`absolute border-2 ${colors[det.zone] || "border-blue-500"} transition-all duration-300`}
           style={{ left, top, width, height }}
@@ -136,15 +156,15 @@ export default function CameraPage({ telemetry }) {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#020617] relative">
       <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
-      
+
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden relative z-10">
         {/* Feed Area - Redesigned HUD Shell */}
         <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4 lg:p-8">
-          <div 
+          <div
             ref={containerRef}
             className={`w-full h-full relative rounded-[2.5rem] overflow-hidden border transition-all duration-700 shadow-2xl group/feed ${aiData.state === "DANGER" ? "border-red-500 ring-4 ring-red-500/20" : "border-blue-500/20"}`}
           >
-            
+
             {/* HUD Overlays */}
             <div className="absolute inset-0 pointer-events-none z-[10] transition-opacity">
               {/* Corner Brackets */}
@@ -152,7 +172,7 @@ export default function CameraPage({ telemetry }) {
               <div className="absolute top-10 right-10 w-16 h-16 border-t-2 border-r-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
               <div className="absolute bottom-10 left-10 w-16 h-16 border-b-2 border-l-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
               <div className="absolute bottom-10 right-10 w-16 h-16 border-b-2 border-r-2 border-blue-500/30 transition-all group-hover/feed:border-blue-500/60" />
-              
+
               {/* Center Crosshair */}
               <div className="absolute inset-0 flex items-center justify-center opacity-20">
                 <div className="relative w-40 h-40 flex items-center justify-center">
@@ -166,11 +186,15 @@ export default function CameraPage({ telemetry }) {
             {/* Main Stream Display */}
             <div className="w-full h-full bg-[#04070d] relative overflow-hidden">
               {showPiStream && (
-                <img key={streamKey} className="w-full h-full object-cover lg:object-contain bg-black" crossOrigin="anonymous" src={`/stream/stream?k=${streamKey}`} alt="Pi Feed" onError={() => { if (streaming) setStreamOk(false) }} />
+                <img key={streamKey} className="w-full h-full object-cover lg:object-contain bg-black" crossOrigin="anonymous" src={`/stream/pi?k=${streamKey}`} alt="Pi Feed" onError={() => { if (streaming) setStreamOk(false) }} />
+              )}
+
+              {thermalMode && (
+                <img className="w-full h-full object-cover lg:object-contain bg-black" src={THERMAL_FEED_URL} alt="Thermal Feed" />
               )}
 
               {/* AI Overlay Layer */}
-              {aiActive && (
+              {aiActive && !thermalMode && (
                 <div className="absolute inset-0 z-[20]">
                   {renderBBoxes()}
                 </div>
@@ -252,6 +276,50 @@ export default function CameraPage({ telemetry }) {
               <div className="absolute inset-0 pointer-events-none z-[100] opacity-[0.03] scanlines" />
             </div>
 
+            {/* Thermal Analytics Panel - Real-time Data */}
+            {thermalMode && (
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[50] flex gap-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                {/* Max Temp Card */}
+                <div className="bg-[#070b14]/90 border border-amber-500/30 backdrop-blur-2xl px-8 py-5 rounded-[2rem] flex flex-col gap-1 min-w-[160px] shadow-[0_0_40px_rgba(245,158,11,0.05)] relative group overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent" />
+                  <span className="font-mono text-[9px] text-amber-500/60 uppercase font-black tracking-[0.2em] relative z-10">Thermal_Peak</span>
+                  <div className="flex items-baseline gap-2 relative z-10">
+                    <span className="font-outfit text-3xl font-black text-white">{thermalStats.max_temp.toFixed(1)}</span>
+                    <span className="font-mono text-xs text-amber-500 font-bold uppercase tracking-widest">°C</span>
+                  </div>
+                </div>
+
+                {/* Avg Temp Card */}
+                <div className="bg-[#070b14]/90 border border-blue-500/30 backdrop-blur-2xl px-8 py-5 rounded-[2rem] flex flex-col gap-1 min-w-[160px] shadow-[0_0_40px_rgba(59,130,246,0.05)] relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent" />
+                  <span className="font-mono text-[9px] text-blue-500/60 uppercase font-black tracking-[0.2em] relative z-10">Ambient_Mean</span>
+                  <div className="flex items-baseline gap-2 relative z-10">
+                    <span className="font-outfit text-3xl font-black text-white">{thermalStats.avg_temp.toFixed(1)}</span>
+                    <span className="font-mono text-xs text-blue-500 font-bold uppercase tracking-widest">°C</span>
+                  </div>
+                </div>
+
+                {/* Hotspot/Detection Card */}
+                <div className={`bg-[#070b14]/90 border backdrop-blur-2xl px-8 py-5 rounded-[2rem] flex flex-col gap-1 min-w-[200px] relative overflow-hidden transition-all duration-500 ${thermalStats.hotspots > 0 ? "border-red-500/60 shadow-[0_0_50px_rgba(239,68,68,0.2)]" : "border-white/10 shadow-none"}`}>
+                  <div className={`absolute inset-0 transition-opacity duration-500 ${thermalStats.hotspots > 0 ? "bg-red-500/10 opacity-100" : "opacity-0"}`} />
+                  <span className={`font-mono text-[9px] uppercase font-black tracking-[0.2em] relative z-10 ${thermalStats.hotspots > 0 ? "text-red-500 animate-pulse" : "text-gray-500"}`}>
+                    {thermalStats.hotspots > 0 ? "!!!_HOTSPOT_DETECTED_!!!" : "No_Thermal_Anomalies"}
+                  </span>
+                  <div className="flex items-center justify-between relative z-10 mt-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-outfit text-3xl font-black text-white">{totalDetections}</span>
+                      <span className="font-mono text-[8px] text-gray-500 font-bold uppercase tracking-widest">Total_Events</span>
+                    </div>
+                    {thermalStats.hotspots > 0 && (
+                      <div className="w-8 h-8 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center animate-ping">
+                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Error Overlay */}
             {showError && (
               <div className="absolute inset-0 z-[40] bg-[#020617] flex flex-col items-center justify-center gap-6">
@@ -267,7 +335,7 @@ export default function CameraPage({ telemetry }) {
         {/* Sidebar - Cleaned Up */}
         <div className="w-full lg:w-[320px] xl:w-[360px] h-auto lg:h-full bg-[#070b14]/60 border-l border-blue-500/10 overflow-y-auto custom-scrollbar p-8 flex flex-col gap-10 backdrop-blur-xl relative">
           <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
-          
+
           <section>
             <div className="flex items-center gap-3 mb-6">
               <Shield size={16} className={aiData.state === "DANGER" ? "text-red-500" : "text-blue-500"} />
@@ -295,14 +363,30 @@ export default function CameraPage({ telemetry }) {
                 <button
                   key={res}
                   onClick={() => handleResolutionChange(res)}
-                  disabled={loading || !streaming}
-                  className={`py-3 px-4 rounded-xl border font-mono text-[10px] font-bold tracking-tight transition-all duration-300 text-left flex justify-between items-center ${resolution === res ? "bg-blue-600/20 border-blue-500/40 text-blue-400 shadow-lg" : "bg-white/[0.02] border-transparent text-gray-600 hover:bg-white/5 hover:text-gray-400"}`}
+                  disabled={loading || !streaming || thermalMode}
+                  className={`py-3 px-4 rounded-xl border font-mono text-[10px] font-bold tracking-tight transition-all duration-300 text-left flex justify-between items-center ${resolution === res && !thermalMode ? "bg-blue-600/20 border-blue-500/40 text-blue-400 shadow-lg" : "bg-white/[0.02] border-transparent text-gray-600 hover:bg-white/5 hover:text-gray-400"}`}
                 >
                   {res}
-                  {resolution === res && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" />}
+                  {resolution === res && !thermalMode && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" />}
                 </button>
               ))}
             </div>
+          </section>
+
+          <section>
+            <div className="font-mono text-[9px] tracking-[0.25em] text-amber-500/60 uppercase font-black mb-4 px-2">Thermal Engine</div>
+            <button
+              onClick={() => setThermalMode(!thermalMode)}
+              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${thermalMode ? "bg-amber-500/20 border-amber-500/40 text-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+            >
+              <div className="flex flex-col items-start gap-1">
+                <span className="font-mono text-[10px] font-black uppercase tracking-widest">Thermal Mode</span>
+                <span className="font-mono text-[8px] opacity-60 uppercase">{thermalMode ? "SENSOR_ONLINE" : "SENSOR_STANDBY"}</span>
+              </div>
+              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${thermalMode ? "bg-amber-500" : "bg-white/10"}`}>
+                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${thermalMode ? "left-6" : "left-1"}`} />
+              </div>
+            </button>
           </section>
 
           <section className="mt-auto pt-8 border-t border-white/5">

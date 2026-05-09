@@ -292,19 +292,14 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Stream Placeholder / Preview */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-[10]">
-                  <div className="w-24 h-24 rounded-3xl bg-blue-500/5 border border-blue-500/20 flex items-center justify-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-blue-500/10 animate-pulse" />
-                    <Video size={40} className="text-blue-500 relative z-10" />
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <h2 className="font-outfit text-3xl font-black text-white tracking-[0.2em] uppercase italic">C270_READY</h2>
-                    <p className="font-mono text-[10px] text-blue-500/60 font-bold uppercase tracking-[0.3em] flex items-center gap-2">
-                      <Radio size={12} className="animate-pulse" />
-                      Waiting for Backend Stream
-                    </p>
-                  </div>
+                {/* RTSP FPV Stream */}
+                <div className="absolute inset-0 z-[10]">
+                  <iframe
+                    src="http://10.39.201.80:1984/stream.html?src=fpv"
+                    className="w-full h-full border-0 bg-black"
+                    allow="autoplay; fullscreen"
+                    allowFullScreen
+                  />
                 </div>
 
                 {/* Stream Info Overlays */}
