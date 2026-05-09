@@ -34,7 +34,7 @@ class USBCamera:
             self.resolution = resolution
             w, h = RESOLUTIONS.get(resolution, (640, 480))
             try:
-                self.cam = cv2.VideoCapture(0)
+                self.cam = cv2.VideoCapture("/dev/video8", cv2.CAP_V4L2)
                 self.cam.set(cv2.CAP_PROP_FRAME_WIDTH, w)
                 self.cam.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
                 self.cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -137,4 +137,4 @@ class PiCamera:
 
 # Global instances
 usb_camera = USBCamera()
-pi_camera = PiCamera()
+pi_camera = PiCamera()

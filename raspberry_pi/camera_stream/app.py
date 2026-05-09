@@ -52,10 +52,10 @@ threading.Thread(target=ai_worker, daemon=True).start()
 
 # ── Streaming Generators ──────────────────────────────────────────────
 
-def generate_stream(camera_obj, fps_throttle=0.06):
+def generate_stream(camera_obj, fps_throttle=0):
     """Universal generator for any camera object"""
     while True:
-        time.sleep(fps_throttle) 
+        fps_throttle=0.06
         frame = camera_obj.get_frame()
         if frame is None:
             continue
@@ -128,5 +128,3 @@ if __name__ == '__main__':
 
 # ── Run ───────────────────────────────────────────────────────────────
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, threaded=True)   
