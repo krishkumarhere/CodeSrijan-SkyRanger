@@ -1,14 +1,11 @@
-# app.py
-
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
-from thermal_stream import generate_thermal_frames
 
 import threading
 import time
 
 from camera import usb_camera, pi_camera
-
+from thermal_stream import generate_thermal_frames
 
 # ─────────────────────────────────────────────────────────────
 # OPTIONAL AI IMPORT
@@ -103,21 +100,25 @@ threading.Thread(
 # ─────────────────────────────────────────────────────────────
 
 def generate_stream(camera_obj):
-    """High-performance generator for MJPEG streaming"""
+    """MJPEG stream generator"""
+
     last_frame = None
+
     while True:
-        # Fetch the pre-encoded JPEG bytes from the background thread
+
         frame = camera_obj.get_frame()
-        
+
         if frame is None or frame == last_frame:
-            # Sleep very briefly to avoid pegging the CPU while waiting for HW
-            time.sleep(0.003) 
+            time.sleep(0.003)
             continue
-            
+
         last_frame = frame
+
         yield (
             b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' +
+            frame +
+            b'\r\n'
         )
 
 # ─────────────────────────────────────────────────────────────
@@ -177,7 +178,7 @@ def stream_pi():
     )
 
 # ─────────────────────────────────────────────────────────────
-# THERMAL CAM STREAM
+# THERMAL STREAM
 # MLX90640 Thermal Camera
 # ─────────────────────────────────────────────────────────────
 
@@ -187,8 +188,7 @@ def thermal_stream():
     return Response(
         generate_thermal_frames(),
         mimetype='multipart/x-mixed-replace; boundary=frame'
-    )    
-
+    )
 
 # ─────────────────────────────────────────────────────────────
 # AI DETECTIONS
@@ -206,23 +206,43 @@ def detections():
 
 @app.route('/camera/start', methods=['POST'])
 def camera_start():
+
     pi_camera.start(pi_camera.resolution)
-    return jsonify({"ok": True, "streaming": pi_camera.streaming})
+
+    return jsonify({
+        "ok": True,
+        "streaming": pi_camera.streaming
+    })
 
 @app.route('/camera/stop', methods=['POST'])
 def camera_stop():
+
     pi_camera.stop()
-    return jsonify({"ok": True, "streaming": pi_camera.streaming})
+
+    return jsonify({
+        "ok": True,
+        "streaming": pi_camera.streaming
+    })
 
 @app.route('/camera/resolution', methods=['POST'])
 def camera_resolution():
+
     from flask import request
+
     data = request.get_json() or {}
+
     res = data.get('resolution', '640x480')
+
     pi_camera.stop()
+
     time.sleep(0.5)
+
     pi_camera.start(res)
-    return jsonify({"ok": True, "resolution": pi_camera.resolution})
+
+    return jsonify({
+        "ok": True,
+        "resolution": pi_camera.resolution
+    })
 
 @app.route('/camera/status')
 def status():
@@ -239,41 +259,6 @@ def status():
             "resolution": pi_camera.resolution
         }
     })
-
-# ─────────────────────────────────────────────────────────────
-# THERMAL STREAM
-# ─────────────────────────────────────────────────────────────
-
-@app.route('/thermal/stream')
-def thermal_stream():
-
-    if not thermal_camera.streaming:
-
-        return jsonify({
-            "error": "Thermal camera not started"
-        }), 503
-
-    return Response(
-        generate_thermal(),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
-    )
-
-def generate_thermal():
-
-    while True:
-
-        frame = thermal_camera.get_frame()
-
-        if frame is None:
-            time.sleep(0.05)
-            continue
-
-        yield (
-            b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' +
-            frame +
-            b'\r\n'
-        )
 
 # ─────────────────────────────────────────────────────────────
 # MAIN
