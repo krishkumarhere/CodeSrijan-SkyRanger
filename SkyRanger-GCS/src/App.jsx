@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react"
-import { ArrowUpRight, Wind, BatteryCharging, Zap, Satellite, MapPin } from "lucide-react"
-import MapPanel from "./MapPanel"
+import { 
+  ArrowUpRight, Wind, BatteryCharging, Zap, Satellite, MapPin, 
+  Shield, Activity, Crosshair, Navigation, Target, Info, AlertCircle, Video, Radio 
+} from "lucide-react"
 import SensorPage from "./SensorPage"
 import CameraPage from "./CameraPage"
 import SystemPage from "./SystemPage"
 import MissionPage from "./MissionPage"
 import AboutPage from "./AboutPage"
+import { ResponsiveShell } from "./components/layout/ResponsiveShell"
 
 const emptyTelemetry = {
   armed: null, flight_mode: null,
@@ -16,98 +19,151 @@ const emptyTelemetry = {
   lat: null, lon: null,
 }
 
-function MetricCard({ label, value, unit, warn = false, icon: Icon }) {
+function MetricTile({ label, value, unit, warn = false, icon: Icon, color = "blue" }) {
+  const colors = {
+    blue: "from-blue-500/20 to-transparent border-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.05)]",
+    amber: "from-amber-500/20 to-transparent border-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.05)]",
+    green: "from-green-500/20 to-transparent border-green-500/20 text-green-400 shadow-[0_0_15px_rgba(16,185,129,0.05)]",
+    red: "from-red-500/20 to-transparent border-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.05)]",
+  }
+
+  const selectedColor = warn ? colors.red : colors[color]
+
   return (
-    <div className={`metric-card ${warn ? "warn" : ""}`}>
-      <div className="metric-card-head">
-        {Icon && <Icon size={16} className="metric-card-icon" />}
-        <div className="metric-label">{label}</div>
+    <div className={`relative group p-4 rounded-2xl border bg-gradient-to-br transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${selectedColor}`}>
+      <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-30 transition-opacity">
+        <Icon size={32} strokeWidth={1} />
       </div>
-      <div className="metric-value">
-        {value ?? "—"}
-        {value != null && unit && <span className="metric-unit">{unit}</span>}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <Icon size={12} className="opacity-60" />
+          <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] opacity-60 leading-none">{label}</span>
+        </div>
+        <div className="flex items-baseline gap-1 mt-1">
+          <span className="font-outfit text-3xl font-black tracking-tight leading-none">
+            {value != null ? (typeof value === 'number' ? value.toFixed(1) : value) : "—"}
+          </span>
+          {unit && <span className="font-mono text-[10px] font-bold opacity-40 uppercase">{unit}</span>}
+        </div>
       </div>
+      {/* Decorative corner */}
+      <div className="absolute bottom-1 right-1 w-2 h-2 border-r border-b border-white/10" />
     </div>
   )
 }
 
 function TelemetryPanel({ data, connected }) {
   const batteryLow = data.battery_remaining !== null && data.battery_remaining < 30
+  
   return (
-    <div className="telemetry-panel">
-      <div className="telemetry-header">
-        <div>
-          <div className="section-label">Live telemetry</div>
-          <div className="dashboard-title">Flight status overview</div>
-        </div>
-        <div className={`status-pill ${connected ? "online" : "offline"}`}>
-          <span className="status-dot" />
-          {connected ? "Live stream active" : "Offline"}
-        </div>
-      </div>
-
-      {/* Arm + Mode */}
-      <div className="arm-bar">
-        <div className="arm-indicator">
-          <div className={`arm-dot ${data.armed ? "armed" : "disarmed"}`} />
-          <span>{data.armed === null ? "—" : data.armed ? "ARMED" : "DISARMED"}</span>
-        </div>
-        <span className="flight-mode">{data.flight_mode ?? "—"}</span>
-      </div>
-
-      {/* Metrics */}
-      <div className="metric-grid">
-        <MetricCard label="Alt" value={data.alt} unit="m" icon={ArrowUpRight} />
-        <MetricCard label="Speed" value={data.vx} unit="m/s" icon={Wind} />
-        <MetricCard label="Battery" value={data.battery_remaining} unit="%" warn={batteryLow} icon={BatteryCharging} />
-        <MetricCard label="Voltage" value={data.battery_voltage} unit="V" warn={batteryLow} icon={Zap} />
-        <MetricCard label="Sats" value={data.satellites} icon={Satellite} />
-        <MetricCard label="GPS Fix" value={data.gps_fix} icon={MapPin} />
-      </div>
-
-      {/* Attitude */}
-      <div className="panel-card">
-        <div className="section-label">Altitude</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginTop: "8px" }}>
-          {[["Roll", data.roll], ["Pitch", data.pitch], ["Yaw", data.yaw]].map(([label, val]) => (
-            <div key={label} style={{ background: "rgba(255,255,255,0.03)", padding: "10px 4px", borderRadius: "8px", textAlign: "center" }}>
-              <div style={{ fontSize: "11px", color: "#a1a1aa", marginBottom: "4px" }}>{label}</div>
-              <div style={{ fontSize: "12px", fontFamily: "JetBrains Mono", color: "#e5e7eb" }}>
-                {val != null ? `${val >= 0 ? '+' : ''}${val.toFixed(2)}` : "—"}
-              </div>
+    <div className="h-full flex flex-col bg-[#070b14]/40 border border-blue-500/10 rounded-[2rem] overflow-hidden backdrop-blur-xl relative group">
+      {/* HUD Header */}
+      <div className="p-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
+              <Shield size={18} className="text-blue-400" />
             </div>
-          ))}
+            <div className="flex flex-col">
+              <span className="font-mono text-[9px] text-blue-500/60 uppercase font-bold tracking-[0.25em]">Tactical Feed</span>
+              <span className="font-outfit text-lg font-black text-white tracking-tight uppercase leading-none mt-1">Telemetry Node</span>
+            </div>
+          </div>
+          <div className={`px-3 py-1.5 rounded-full border font-mono text-[9px] font-black tracking-widest flex items-center gap-2 ${connected ? "bg-green-500/10 border-green-500/30 text-green-500" : "bg-red-500/10 border-red-500/30 text-red-500"}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+            {connected ? "LIVE DATA" : "NO LINK"}
+          </div>
+        </div>
+
+        {/* Mission Status Bar */}
+        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
+          <div className="flex flex-col gap-1">
+            <span className="font-mono text-[8px] text-gray-500 uppercase tracking-widest leading-none">Flight Mode</span>
+            <span className="font-outfit text-sm font-black text-white uppercase tracking-wider">{data.flight_mode || "—"}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`px-4 py-2 rounded-xl font-mono text-xs font-black tracking-[0.15em] border transition-all ${data.armed ? "bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.25)]" : "bg-white/5 border-white/10 text-gray-500"}`}>
+              {data.armed ? "ARMED" : "DISARMED"}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Position */}
-      <div className="panel-card">
-        <div className="section-label">Position</div>
-        <div className="data-row">
-          <span className="data-row-key">Lat</span>
-          <span className="data-row-val">{data.lat?.toFixed(5) ?? "—"}</span>
+      {/* Metrics Grid */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <MetricTile label="Altitude" value={data.alt} unit="m" icon={ArrowUpRight} />
+          <MetricTile label="Air Speed" value={data.vx} unit="m/s" icon={Wind} color="amber" />
+          <MetricTile label="Battery" value={data.battery_remaining} unit="%" warn={batteryLow} icon={BatteryCharging} color="green" />
+          <MetricTile label="Voltage" value={data.battery_voltage} unit="V" warn={batteryLow} icon={Zap} color="green" />
+          <MetricTile label="Satellites" value={data.satellites} icon={Satellite} />
+          <MetricTile label="GPS Fix" value={data.gps_fix} icon={MapPin} />
         </div>
-        <div className="data-row">
-          <span className="data-row-key">Lon</span>
-          <span className="data-row-val">{data.lon?.toFixed(5) ?? "—"}</span>
+
+        {/* Attitude Section */}
+        <div className="p-5 bg-white/5 border border-white/5 rounded-3xl">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black">Spatial Attitude</span>
+            <div className="flex gap-1">
+              <div className="w-1 h-1 rounded-full bg-blue-500/40" />
+              <div className="w-1 h-1 rounded-full bg-blue-500/20" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[["Roll", data.roll, "R"], ["Pitch", data.pitch, "P"], ["Yaw", data.yaw, "Y"]].map(([label, val, short]) => (
+              <div key={label} className="relative bg-black/30 border border-white/5 p-3 rounded-2xl group transition-all hover:border-blue-500/20">
+                <span className="absolute top-1 right-2 font-mono text-[8px] text-blue-500/30 font-bold">{short}</span>
+                <div className="font-mono text-[8px] text-gray-500 uppercase mb-1">{label}</div>
+                <div className="font-outfit text-sm font-black text-gray-200">
+                  {val != null ? `${val >= 0 ? '+' : ''}${val.toFixed(1)}°` : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Position Metadata */}
+        <div className="p-5 bg-white/5 border border-white/5 rounded-3xl">
+          <div className="flex items-center gap-3 mb-4">
+            <Navigation size={14} className="text-blue-500" />
+            <span className="font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black">Coordinates</span>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-3 py-2 bg-black/40 border border-white/5 rounded-xl group">
+              <span className="font-mono text-[10px] text-gray-600 font-bold">LAT</span>
+              <span className="font-mono text-xs font-black text-blue-400 group-hover:text-blue-300 transition-colors">{data.lat?.toFixed(8) ?? "—"}</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 bg-black/40 border border-white/5 rounded-xl group">
+              <span className="font-mono text-[10px] text-gray-600 font-bold">LON</span>
+              <span className="font-mono text-xs font-black text-blue-400 group-hover:text-blue-300 transition-colors">{data.lon?.toFixed(8) ?? "—"}</span>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* Decorative Scanline Overlay */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] scanlines" />
     </div>
   )
 }
 
 function FlightLog({ logs }) {
   return (
-    <div className="flight-log">
-      <span className="log-tag">LOG</span>
-      <div className="log-entries">
-        {logs.slice(-6).map((log, i) => (
-          <span key={i} className="log-entry">
-            <span className="log-time">{log.time}</span>
-            <span className="log-msg">{log.msg}</span>
-          </span>
-        ))}
+    <div className="flex-shrink-0 mx-6 mb-6 mt-2 relative">
+      <div className="absolute -top-3 left-4 px-3 py-0.5 bg-blue-600 text-white rounded-full font-mono text-[8px] font-black tracking-widest z-10 shadow-lg">MISSION_LOG</div>
+      <div className="bg-[#070b14]/60 border border-blue-500/10 rounded-2xl p-4 flex flex-col md:flex-row gap-3 overflow-hidden backdrop-blur-xl group">
+        <div className="flex items-center gap-2 pr-4 border-r border-white/5">
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+          <span className="font-mono text-[10px] text-blue-500 font-black">SYSTEM_STREAMS</span>
+        </div>
+        <div className="flex-1 flex flex-col md:flex-row gap-3 md:gap-6 overflow-hidden">
+          {logs.slice(-3).reverse().map((log, i) => (
+            <div key={i} className="flex items-center gap-3 min-w-0 flex-1 group/item">
+              <span className="font-mono text-[10px] text-gray-600 font-bold shrink-0">{log.time}</span>
+              <span className="font-mono text-[11px] text-gray-400 truncate group-hover/item:text-gray-200 transition-colors uppercase tracking-tight">{log.msg}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -126,11 +182,9 @@ export default function App() {
   ])
   const [page, setPage] = useState("DASHBOARD")
   const [logs, setLogs] = useState([
-    { time: "00:00:00", msg: "System initialized" },
+    { time: "00:00:00", msg: "CORE_SYSTEM_INITIALIZED" },
   ])
 
-
-  // Health Check Heartbeat
   useEffect(() => {
     let failures = 0;
     const interval = setInterval(() => {
@@ -151,7 +205,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // WebSocket with auto-reconnect
   useEffect(() => {
     let ws;
     let reconnectTimeout;
@@ -162,16 +215,13 @@ export default function App() {
       const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
       
       ws = new WebSocket(wsUrl);
-
       ws.onopen = () => {
         setConnected(true);
         setReconnecting(false);
         attempt = 0;
-        setLogs(p => [...p, { time: new Date().toLocaleTimeString(), msg: "MAVLink stream active" }]);
+        setLogs(p => [...p, { time: new Date().toLocaleTimeString([], {hour12: false}), msg: "MAVLINK_STREAM_ESTABLISHED" }]);
       };
-
       ws.onmessage = (e) => setTelemetry(JSON.parse(e.data));
-
       ws.onclose = () => {
         setConnected(false);
         setReconnecting(true);
@@ -179,15 +229,12 @@ export default function App() {
         const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
         reconnectTimeout = setTimeout(connectWS, delay);
       };
-
       ws.onerror = (e) => {
         console.error("[WS]", e);
         ws.close();
       };
     };
-
     connectWS();
-
     return () => {
       clearTimeout(reconnectTimeout);
       if (ws) {
@@ -200,6 +247,8 @@ export default function App() {
   useEffect(() => {
     if (telemetry.lat && telemetry.lon) {
       setFlightPath(prev => {
+        const last = prev[prev.length - 1]
+        if (last && last[0] === telemetry.lat && last[1] === telemetry.lon) return prev
         const next = [...prev, [telemetry.lat, telemetry.lon]]
         return next.length > 500 ? next.slice(-500) : next
       })
@@ -207,58 +256,106 @@ export default function App() {
   }, [telemetry.lat, telemetry.lon])
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-
-      {/* Navbar */}
-      <nav className="navbar">
-        <div className="brand">
-          <span className="brand-name">SKYRANGER</span>
-          <span className="brand-badge">GCS v2.0</span>
-        </div>
-
-        <div className="nav-links">
-          {["DASHBOARD", "SENSORS", "CAMERA", "SYSTEM", "MISSION", "ABOUT"].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`nav-btn ${page === p ? "active" : ""}`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-
-        <div className={`conn-status ${connected ? "text-green-400" : reconnecting ? "text-yellow-400" : "text-red-400"}`}>
-          <div className={`conn-dot ${connected ? "connected" : reconnecting ? "reconnecting" : "disconnected"}`} style={reconnecting ? { backgroundColor: '#facc15', boxShadow: '0 0 8px #facc15' } : {}} />
-          {connected ? "CONNECTED" : reconnecting ? "RECONNECTING..." : "DISCONNECTED"}
-          <span style={{
-            marginLeft: 16,
-            padding: "4px 8px",
-            background: "#3b82f6",
-            color: "white",
-            borderRadius: 4,
-            fontSize: 10,
-            fontFamily: "JetBrains Mono",
-            fontWeight: 600
-          }}>
-            {telemetry.flight_mode || "STANDBY"}
-          </span>
-        </div>
-      </nav>
-
-      {/* Page content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+    <ResponsiveShell 
+      page={page} 
+      setPage={setPage} 
+      connected={connected} 
+      reconnecting={reconnecting} 
+      telemetry={telemetry}
+    >
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {page === "DASHBOARD" && (
-          <div className="main-layout">
-            <TelemetryPanel data={telemetry} connected={connected} />
-            <div className="map-wrapper">
-              <MapPanel
-                lat={telemetry.lat}
-                lon={telemetry.lon}
-                flightPath={flightPath}
-                waypoints={[]}
-                currentWaypointIndex={0}
-              />
+          <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 lg:p-8 min-h-0 overflow-y-auto lg:overflow-hidden custom-scrollbar bg-cyber-grid">
+            
+            {/* Sidebar Telemetry */}
+            <div className="w-full lg:w-[400px] xl:w-[440px] flex-shrink-0 lg:h-full flex flex-col gap-6">
+              <TelemetryPanel data={telemetry} connected={connected} />
+            </div>
+
+            {/* Main Camera Preview - Replaces MapPanel */}
+            <div className="flex-1 min-h-[500px] lg:min-h-0 relative rounded-[2.5rem] overflow-hidden border border-blue-500/20 shadow-2xl bg-black group/camera">
+              
+              {/* Tactical Feed Container */}
+              <div className="w-full h-full bg-[#04070d] relative overflow-hidden">
+                {/* HUD Corner Brackets */}
+                <div className="absolute top-10 left-10 w-16 h-16 border-t-2 border-l-2 border-blue-500/30 pointer-events-none z-[20] transition-all group-hover/camera:border-blue-500/60" />
+                <div className="absolute top-10 right-10 w-16 h-16 border-t-2 border-r-2 border-blue-500/30 pointer-events-none z-[20] transition-all group-hover/camera:border-blue-500/60" />
+                <div className="absolute bottom-10 left-10 w-16 h-16 border-b-2 border-l-2 border-blue-500/30 pointer-events-none z-[20] transition-all group-hover/camera:border-blue-500/60" />
+                <div className="absolute bottom-10 right-10 w-16 h-16 border-b-2 border-r-2 border-blue-500/30 pointer-events-none z-[20] transition-all group-hover/camera:border-blue-500/60" />
+
+                {/* Center Targeting Reticle */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5] opacity-20 transition-opacity group-hover/camera:opacity-40">
+                  <div className="relative w-64 h-64 border border-white/5 rounded-full flex items-center justify-center">
+                    <div className="absolute w-full h-px bg-white/10" />
+                    <div className="absolute h-full w-px bg-white/10" />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6]" />
+                  </div>
+                </div>
+
+                {/* Stream Placeholder / Preview */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-[10]">
+                  <div className="w-24 h-24 rounded-3xl bg-blue-500/5 border border-blue-500/20 flex items-center justify-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-blue-500/10 animate-pulse" />
+                    <Video size={40} className="text-blue-500 relative z-10" />
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <h2 className="font-outfit text-3xl font-black text-white tracking-[0.2em] uppercase italic">C270_READY</h2>
+                    <p className="font-mono text-[10px] text-blue-500/60 font-bold uppercase tracking-[0.3em] flex items-center gap-2">
+                      <Radio size={12} className="animate-pulse" />
+                      Waiting for Backend Stream
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stream Info Overlays */}
+                <div className="absolute top-10 left-10 right-10 flex justify-between items-start z-[30] pointer-events-none">
+                  <div className="flex flex-col gap-2">
+                    <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#3b82f6]" />
+                      <span className="font-mono text-[10px] font-black tracking-widest text-white uppercase">PRIMARY_DOWNLINK</span>
+                    </div>
+                    <div className="bg-black/60 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm">
+                      <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">DEVICE: LOGITECH_C270</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-3">
+                      <Activity size={14} className="text-blue-500" />
+                      <span className="font-mono text-[10px] font-black tracking-widest text-white uppercase">BANDWIDTH_OPTIMIZED</span>
+                    </div>
+                    <div className="bg-black/60 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm flex items-center gap-2">
+                      <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">640x480 @ 30FPS</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom HUD Metadata */}
+                <div className="absolute bottom-10 left-10 right-10 flex justify-between items-end z-[30] pointer-events-none">
+                  <div className="flex flex-col gap-2">
+                    <div className="bg-black/60 border border-white/5 px-4 py-2 rounded-xl backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">AI_OVERLAY_READY</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 bg-[#070b14]/90 border border-white/10 px-6 py-3 rounded-2xl backdrop-blur-md">
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[8px] text-blue-500/60 uppercase font-bold tracking-widest">LAT</span>
+                      <span className="font-mono text-xs font-black text-white">{telemetry.lat?.toFixed(6) ?? "0.000000"}</span>
+                    </div>
+                    <div className="w-px h-6 bg-white/10" />
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[8px] text-blue-500/60 uppercase font-bold tracking-widest">LON</span>
+                      <span className="font-mono text-xs font-black text-white">{telemetry.lon?.toFixed(6) ?? "0.000000"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scanline Overlay */}
+                <div className="absolute inset-0 pointer-events-none z-[40] opacity-[0.03] scanlines" />
+              </div>
             </div>
           </div>
         )}
@@ -267,11 +364,9 @@ export default function App() {
         {page === "SYSTEM" && <SystemPage />}
         {page === "MISSION" && <MissionPage telemetry={telemetry} connected={connected} />}
         {page === "ABOUT" && <AboutPage />}
+        
+        <FlightLog logs={logs} />
       </div>
-
-      <FlightLog logs={logs} />
-
-
-    </div>
+    </ResponsiveShell>
   )
 }

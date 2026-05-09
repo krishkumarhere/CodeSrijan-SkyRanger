@@ -1,92 +1,101 @@
 import { useState, useEffect } from "react"
+import { Cpu, Zap, Activity, Globe, HardDrive, Thermometer, Shield, Server, Network, Clock, AlertCircle } from "lucide-react"
 
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss" : "ws"
+const HOSTNAME = window.location.host
+const WS_URL = `${WS_PROTOCOL}://${HOSTNAME}/api/ws/system`
 
-const WS_URL = `${WS_PROTOCOL}://${window.location.host}/ws/system`
-const API_URL = ""
-
-// Circular gauge for CPU temp
 function TempGauge({ value, max = 85 }) {
   const pct = Math.min(100, ((value ?? 0) / max) * 100)
   const radius = 30
   const circ = 2 * Math.PI * radius
   const offset = circ - (pct / 100) * circ
-  const color = value > 70 ? "var(--red)" : value > 60 ? "var(--amber)" : "#4ade80"
+  const color = value > 70 ? "#ef4444" : value > 60 ? "#f59e0b" : "#3b82f6"
 
   return (
-    <div className="temp-gauge">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={radius} fill="none"
-          stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
-        <circle cx="40" cy="40" r={radius} fill="none"
-          stroke={color} strokeWidth="6"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
+    <div className="relative w-24 h-24 mx-auto flex items-center justify-center group">
+      <div className="absolute inset-0 rounded-full border border-white/5 bg-blue-500/5 animate-pulse-soft" />
+      <svg className="w-full h-full -rotate-90 relative z-10" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="4" />
+        <circle 
+          cx="40" cy="40" r={radius} fill="none" 
+          stroke={color} strokeWidth="4" 
+          strokeDasharray={circ} strokeDashoffset={offset} 
+          strokeLinecap="round" 
+          className="transition-all duration-1000 ease-out" 
+          style={{ filter: `drop-shadow(0 0 8px ${color}44)` }}
         />
       </svg>
-      <div className="temp-gauge-label">
-        <span style={{ fontSize: 14, fontWeight: 600, color }}>
-          {value ?? "—"}
-        </span>
-        <span style={{ fontSize: 8, color: "var(--text-faint)" }}>°C</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center font-outfit z-20">
+        <span className="text-xl font-black tracking-tighter" style={{ color }}>{value ?? "—"}</span>
+        <span className="text-[8px] text-gray-500 uppercase font-black tracking-widest mt-0.5">CELSIUS</span>
       </div>
     </div>
   )
 }
 
-// Animated progress bar
-function ProgressBar({ value, color = "var(--accent)" }) {
+function StatBar({ label, value, color = "#3b82f6", unit = "%" }) {
   const warn = value > 80
+  const barColor = warn ? "#ef4444" : color
   return (
-    <div>
-      <div className="sys-progress">
-        <div className="sys-progress-fill" style={{
-          width: `${value ?? 0}%`,
-          background: warn ? "var(--red)" : color,
-        }} />
+    <div className="w-full group">
+      <div className="flex justify-between items-end mb-2">
+        <span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.2em]">{label}</span>
+        <div className="flex items-baseline gap-1">
+          <span className={`font-outfit text-lg font-black leading-none ${warn ? "text-red-500" : "text-white"}`}>{value ?? "—"}</span>
+          <span className="font-mono text-[8px] text-gray-600 font-bold">{unit}</span>
+        </div>
       </div>
-      <div className="sys-progress-label">
-        <span>0%</span>
-        <span style={{ color: warn ? "var(--red)" : "var(--text-faint)" }}>
-          {value ?? "—"}%
-        </span>
-        <span>100%</span>
+      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner">
+        <div 
+          className="h-full rounded-full transition-all duration-1000 ease-out relative" 
+          style={{ width: `${value ?? 0}%`, backgroundColor: barColor, boxShadow: `0 0 10px ${barColor}44` }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-scanline" />
+        </div>
       </div>
     </div>
   )
 }
 
-// Hardware spec card
-function HardwareCard({ title, icon, specs }) {
+function HardwareTile({ title, icon: Icon, specs, color = "blue" }) {
+  const borderColors = {
+    blue: "border-blue-500/10 group-hover:border-blue-500/30",
+    amber: "border-amber-500/10 group-hover:border-amber-500/30",
+    green: "border-green-500/10 group-hover:border-green-500/30",
+  }
+
   return (
-    <div className="hw-card">
-      <div className="hw-card-title">
-        <span>{icon}</span>
-        {title}
+    <div className={`bg-[#070b14]/60 border rounded-[2rem] p-6 transition-all duration-500 group relative overflow-hidden ${borderColors[color]}`}>
+      <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+        <Icon size={80} strokeWidth={1} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div className="flex items-center gap-3 mb-6 relative z-10">
+        <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
+          <Icon size={18} />
+        </div>
+        <h3 className="font-outfit text-sm font-black tracking-widest text-white uppercase">{title}</h3>
+      </div>
+      <div className="space-y-3 relative z-10">
         {specs.map(([key, val, cls]) => (
-          <div key={key} className="hw-row">
-            <span className="hw-key">{key}</span>
-            <span className={`hw-val ${cls ?? ""}`}>{val}</span>
+          <div key={key} className="flex justify-between items-center py-2 border-b border-white/[0.03] last:border-0 group/row">
+            <span className="font-mono text-[9px] text-gray-500 uppercase font-bold tracking-widest group-hover/row:text-gray-400 transition-colors">{key}</span>
+            <span className={`font-mono text-[10px] font-black ${cls === 'accent' ? 'text-blue-400' : cls === 'amber' ? 'text-amber-500' : cls === 'green' ? 'text-green-400' : cls === 'red' ? 'text-red-500' : 'text-gray-300'}`}>{val}</span>
           </div>
         ))}
       </div>
+      {/* HUD corner */}
+      <div className="absolute bottom-4 right-4 w-4 h-4 border-r border-b border-white/5 rounded-br-xl pointer-events-none" />
     </div>
   )
 }
 
-// Pages
 const NAV_ITEMS = [
-  { id: "overview", label: "Overview", icon: "◈" },
-  { id: "pi", label: "Raspberry Pi", icon: "⬡" },
-  { id: "pixhawk", label: "Pixhawk FC", icon: "✦" },
-  { id: "gimbal", label: "Gimbal", icon: "◎" },
-  { id: "power", label: "Power System", icon: "⚡" },
-  { id: "sensors", label: "Sensors", icon: "◉" },
-  { id: "comms", label: "Comms", icon: "◈" },
+  { id: "overview", label: "NODE OVERVIEW", icon: Activity },
+  { id: "pi", label: "COMPUTE UNIT", icon: Cpu },
+  { id: "pixhawk", label: "FLIGHT CORE", icon: Shield },
+  { id: "power", label: "POWER GRID", icon: Zap },
+  { id: "comms", label: "NETWORK LINK", icon: Globe },
 ]
 
 export default function SystemPage() {
@@ -96,353 +105,194 @@ export default function SystemPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let ws
-    let retry
-
+    let ws; let retry
     function connect() {
       ws = new WebSocket(WS_URL)
-      ws.onopen = () => {
-        setConnected(true)
-        setLoading(false)
-      }
-      ws.onmessage = (e) => {
-        setSys(JSON.parse(e.data))
-        setLoading(false)
-      }
-      ws.onerror = (err) => {
-        console.error("[WS] System error", err)
-        setConnected(false)
-      }
-      ws.onclose = () => {
-        setConnected(false)
-        retry = setTimeout(connect, 3000)
-      }
+      ws.onopen = () => { setConnected(true); setLoading(false) }
+      ws.onmessage = (e) => { setSys(JSON.parse(e.data)); setLoading(false) }
+      ws.onerror = (err) => { console.error("[WS] System error", err); setConnected(false) }
+      ws.onclose = () => { setConnected(false); retry = setTimeout(connect, 3000) }
     }
-
     async function fetchSnapshot() {
       try {
-        const res = await fetch(`/system/status`)
+        const res = await fetch(`/api/system/status`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        setSys(data)
-        setLoading(false)
-      } catch (err) {
-        console.warn("[System HTTP] snapshot failed", err)
-      }
+        const data = await res.json(); setSys(data); setLoading(false)
+      } catch (err) { console.warn("[System HTTP] failed", err) }
     }
-
-    fetchSnapshot()
-    connect()
+    fetchSnapshot(); connect()
     return () => { clearTimeout(retry); ws?.close() }
   }, [])
 
   return (
-    <div className="system-page">
+    <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden bg-[#020617] relative">
+      {/* Static background grid */}
+      <div className="absolute inset-0 cyber-grid opacity-[0.03] pointer-events-none" />
 
-      {/* Sidebar nav */}
-      <div className="system-sidebar">
-        <div className="system-sidebar-title">System</div>
-        {NAV_ITEMS.map(item => (
-          <button
-            key={item.id}
-            className={`system-nav-item ${active === item.id ? "active" : ""}`}
-            onClick={() => setActive(item.id)}
-          >
-            <span className="system-nav-icon">{item.icon}</span>
-            <span className="system-nav-label">{item.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Side Navigation HUD */}
+      <nav className="flex lg:flex-col shrink-0 border-b lg:border-b-0 lg:border-r border-blue-500/10 bg-[#070b14]/60 backdrop-blur-xl overflow-x-auto lg:overflow-y-auto no-scrollbar py-4 lg:py-8 px-4 lg:w-64 z-20">
+        <div className="hidden lg:block font-mono text-[9px] tracking-[0.3em] text-blue-500/60 uppercase font-black mb-8 px-4">System Topology</div>
+        <div className="flex lg:flex-col gap-2">
+          {NAV_ITEMS.map(item => {
+            const Icon = item.icon
+            const isActive = active === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActive(item.id)}
+                className={`flex items-center gap-4 px-4 py-3 rounded-2xl border transition-all duration-500 group ${isActive ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[0_0_20px_rgba(59,130,246,0.1)]" : "border-transparent text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
+              >
+                <div className={`p-1.5 rounded-lg transition-colors ${isActive ? "bg-blue-500/20 text-blue-400" : "bg-transparent text-gray-600 group-hover:text-gray-400"}`}>
+                  <Icon size={16} />
+                </div>
+                <span className="font-mono text-[10px] font-black tracking-widest uppercase">{item.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
 
-      {/* Main content */}
-      <div className="system-main">
-
-        {/* Status Header */}
-        <div style={{
-          padding: "20px 24px",
-          borderBottom: "1px solid rgba(59,130,246,0.1)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          background: "linear-gradient(90deg, rgba(30,40,60,0.5), rgba(15,25,40,0.5))"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{
-              fontSize: 32,
-              opacity: loading ? 0.5 : 1,
-              animation: loading ? "pulse 2s infinite" : "none"
-            }}>
-              {active === "overview" ? "📊" : active === "pi" ? "⬡" : active === "pixhawk" ? "✦" : active === "gimbal" ? "◎" : active === "power" ? "⚡" : active === "sensors" ? "◉" : "◈"}
+      {/* Main Command View */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative z-10">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between p-6 lg:p-8 border-b border-white/[0.03] gap-4">
+          <div className="flex items-center gap-5">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-blue-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity animate-pulse-soft" />
+              <div className="relative p-4 bg-blue-600/10 border border-blue-500/30 rounded-[1.25rem] text-blue-400">
+                {active === "overview" ? <Activity size={24} /> : <Server size={24} />}
+              </div>
             </div>
             <div>
-              <div style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em"
-              }}>
-                {active.toUpperCase()} STATUS
-              </div>
-              <div style={{
-                fontSize: 12,
-                color: "var(--text-muted)",
-                marginTop: 4
-              }}>
-                {connected ? "✓ Real-time monitoring active" : "○ Connecting..."}
+              <h2 className="font-outfit text-2xl font-black text-white tracking-tight uppercase leading-none">{active} INTERFACE</h2>
+              <div className="flex items-center gap-2 mt-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-blue-500 shadow-[0_0_10px_#3b82f6]" : "bg-red-500"} animate-pulse`} />
+                <span className="font-mono text-[9px] text-gray-500 uppercase tracking-[0.2em] font-black">{connected ? "Operational Status: High" : "Diagnostic Mode: Critical"}</span>
               </div>
             </div>
           </div>
-          <div style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "center"
-          }}>
-            <div style={{
-              width: 12,
-              height: 12,
-              borderRadius: "50%",
-              background: connected ? "#10b981" : "#ef4444",
-              boxShadow: `0 0 12px ${connected ? "rgba(16,185,129,0.5)" : "rgba(239,68,68,0.5)"}`,
-              animation: "pulse-green 2s infinite"
-            }} />
-            <span style={{
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: 11,
-              fontWeight: 600,
-              color: connected ? "#10b981" : "#ef4444",
-              textTransform: "uppercase"
-            }}>
-              {connected ? "ONLINE" : "OFFLINE"}
-            </span>
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="font-mono text-[8px] text-gray-600 uppercase font-black tracking-widest">Network Load</span>
+              <span className="font-mono text-xs font-black text-blue-500/80">421.4 KB/S</span>
+            </div>
+            <div className="h-8 w-px bg-white/5 hidden sm:block" />
+            <div className="bg-black/40 border border-white/5 px-5 py-2.5 rounded-2xl flex items-center gap-4">
+              <Network size={14} className="text-gray-500" />
+              <span className="font-mono text-[10px] font-black text-gray-400 tracking-widest uppercase">{connected ? "ACTIVE_LINK" : "NODE_LOST"}</span>
+            </div>
           </div>
-        </div>
+        </header>
 
-        {/* Alerts */}
-        {sys.alerts?.length > 0 && (
-          <div className="system-alert-bar" style={{ paddingTop: 12 }}>
-            {sys.alerts.map((a, i) => (
-              <div key={i} className="alarm-banner">
-                <div className="alarm-dot" />
-                <span className="alarm-text">{a}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8 space-y-8">
+          {sys.alerts?.length > 0 && (
+            <div className="space-y-3">
+              {sys.alerts.map((a, i) => (
+                <div key={i} className="flex items-center gap-4 bg-red-500/10 border border-red-500/20 p-5 rounded-[1.5rem] text-red-500 animate-in fade-in slide-in-from-top-2">
+                  <div className="p-2 bg-red-500/20 rounded-lg"><AlertCircle size={18} /></div>
+                  <span className="font-mono text-xs font-black tracking-tight uppercase italic">{a}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
-        <div className="system-content">
-
-          {/* OVERVIEW */}
           {active === "overview" && (
-            <>
-              {/* Top metrics */}
-              <div className="sys-metric-row">
-                <div className={`sys-metric-card ${sys.cpu_usage > 80 ? "warn" : ""}`}>
-                  <div className="sys-metric-label">CPU Usage</div>
-                  <div className="sys-metric-value">
-                    {sys.cpu_usage ?? "—"}
-                    <span className="sys-metric-unit">%</span>
-                  </div>
-                  <ProgressBar value={sys.cpu_usage} color="var(--accent)" />
+            <div className="space-y-10 animate-in fade-in duration-700">
+              {/* Performance HUD */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col gap-6 backdrop-blur-xl relative overflow-hidden group">
+                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em]">CORE LOAD</span><Cpu size={16} className="text-blue-500/50" /></div>
+                  <StatBar label="System Usage" value={sys.cpu_usage} color="#3b82f6" />
                 </div>
-
-                <div className={`sys-metric-card ${sys.ram_percent > 80 ? "warn" : ""}`}>
-                  <div className="sys-metric-label">RAM Usage</div>
-                  <div className="sys-metric-value">
-                    {sys.ram_percent ?? "—"}
-                    <span className="sys-metric-unit">%</span>
-                  </div>
-                  <ProgressBar value={sys.ram_percent} color="#38bdf8" />
-                  <div className="sys-progress-label" style={{ marginTop: -4 }}>
-                    <span>{sys.ram_used ?? "—"} GB used</span>
-                    <span>{sys.ram_total ?? "—"} GB total</span>
-                  </div>
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col gap-6 backdrop-blur-xl relative overflow-hidden group">
+                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em]">MEMORY POOL</span><Activity size={16} className="text-purple-500/50" /></div>
+                  <StatBar label="RAM Distribution" value={sys.ram_percent} color="#8b5cf6" />
                 </div>
-
-                <div className={`sys-metric-card ${sys.cpu_temp > 70 ? "warn" : ""}`}>
-                  <div className="sys-metric-label">CPU Temp</div>
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col items-center justify-center backdrop-blur-xl group">
+                  <span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em] mb-4 self-start">THERMAL UNIT</span>
                   <TempGauge value={sys.cpu_temp} />
                 </div>
-
-                <div className={`sys-metric-card ${sys.disk_percent > 80 ? "warn" : ""}`}>
-                  <div className="sys-metric-label">Disk Usage</div>
-                  <div className="sys-metric-value">
-                    {sys.disk_percent ?? "—"}
-                    <span className="sys-metric-unit">%</span>
-                  </div>
-                  <ProgressBar value={sys.disk_percent} color="var(--amber)" />
-                  <div className="sys-progress-label" style={{ marginTop: -4 }}>
-                    <span>{sys.disk_used ?? "—"} GB used</span>
-                    <span>{sys.disk_total ?? "—"} GB total</span>
-                  </div>
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col gap-6 backdrop-blur-xl relative overflow-hidden group">
+                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em]">STORAGE ARRAY</span><HardDrive size={16} className="text-amber-500/50" /></div>
+                  <StatBar label="Volume Status" value={sys.disk_percent} color="#f59e0b" />
                 </div>
               </div>
 
-              {/* Secondary stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginTop: 8 }}>
-                <div className="hw-card">
-                  <div className="hw-card-title">⬡ Runtime</div>
-                  {[
-                    ["Uptime", sys.uptime ?? "—", "accent"],
-                    ["CPU Freq", sys.cpu_freq ? `${sys.cpu_freq} MHz` : "—", ""],
-                    ["CPU Cores", sys.cpu_cores ?? "—", "amber"],
-                    ["Processes", sys.process_count ?? "—", ""],
-                  ].map(([k, v, c]) => (
-                    <div key={k} className="hw-row">
-                      <span className="hw-key">{k}</span>
-                      <span className={`hw-val ${c}`}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hw-card">
-                  <div className="hw-card-title">◈ Network</div>
-                  {[
-                    ["IP Address", PI_IP, "accent"],
-                    ["Data Sent", sys.net_sent ? `${sys.net_sent} MB` : "—", ""],
-                    ["Data Recv", sys.net_recv ? `${sys.net_recv} MB` : "—", ""],
-                    ["WS Status", connected ? "ACTIVE" : "OFFLINE", connected ? "green" : "red"],
-                  ].map(([k, v, c]) => (
-                    <div key={k} className="hw-row">
-                      <span className="hw-key">{k}</span>
-                      <span className={`hw-val ${c}`}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hw-card">
-                  <div className="hw-card-title">◉ MLX Thermal</div>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flex: 1,
-                    flexDirection: "column",
-                    gap: 6,
-                    padding: "8px 0"
-                  }}>
-                    <TempGauge value={sys.cpu_temp} max={100} />
-                    <span style={{
-                      fontFamily: "JetBrains Mono",
-                      fontSize: 8,
-                      color: "var(--text-faint)",
-                      letterSpacing: "0.1em"
-                    }}>
-                      HEATSINK TEMP
-                    </span>
-                  </div>
-                </div>
+              {/* Topology Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                <HardwareTile title="Temporal Runtime" icon={Clock} specs={[
+                  ["System Uptime", sys.uptime ?? "—", "accent"],
+                  ["Core Frequency", sys.cpu_freq ? `${sys.cpu_freq} MHz` : "—", ""],
+                  ["Logical Cores", sys.cpu_cores ?? "—", "amber"],
+                  ["Active Procs", sys.process_count ?? "—", ""],
+                ]} />
+                <HardwareTile title="Global Network" icon={Globe} specs={[
+                  ["Node Hostname", HOSTNAME, "accent"],
+                  ["Packets Sent", sys.net_sent ? `${sys.net_sent} MB` : "—", ""],
+                  ["Packets Recv", sys.net_recv ? `${sys.net_recv} MB` : "—", ""],
+                  ["Link Integrity", connected ? "VERIFIED" : "DISRUPTED", connected ? "green" : "red"],
+                ]} />
+                <HardwareTile title="Thermal Core" icon={Thermometer} specs={[
+                  ["Sink Temp", `${sys.cpu_temp ?? "—"}°C`, sys.cpu_temp > 70 ? "red" : "green"],
+                  ["Throttling", sys.cpu_temp > 70 ? "CRITICAL" : "INACTIVE", sys.cpu_temp > 70 ? "red" : "green"],
+                  ["Logic Fan", "SMART_MODE", "accent"],
+                  ["State", "OPTIMAL", "green"],
+                ]} />
               </div>
-            </>
+            </div>
           )}
 
-          {/* RASPBERRY PI */}
           {active === "pi" && (
-            <HardwareCard title="Raspberry Pi 5" icon="⬡" specs={[
-              ["Model", "Raspberry Pi 5", "accent"],
-              ["RAM", "8 GB LPDDR4X", ""],
-              ["CPU", "Cortex-A76 4-core", ""],
-              ["CPU Speed", "2.4 GHz", "amber"],
-              ["Storage", "32 GB SD Card", ""],
-              ["OS", "Raspberry Pi OS", ""],
-              ["Python", "3.13", ""],
-              ["IP Address", PI_IP, "accent"],
-              ["Uptime", sys.uptime ?? "—", "green"],
-              ["CPU Temp", sys.cpu_temp ? `${sys.cpu_temp}°C` : "—",
-                sys.cpu_temp > 70 ? "red" : "green"],
-              ["CPU Usage", sys.cpu_usage ? `${sys.cpu_usage}%` : "—", ""],
-              ["RAM Used", sys.ram_used ? `${sys.ram_used} GB` : "—", ""],
-              ["Disk Used", sys.disk_used ? `${sys.disk_used} GB` : "—", ""],
-              ["Role", "Onboard Computer", "accent"],
-            ]} />
+            <div className="max-w-4xl animate-in fade-in slide-in-from-right-4 duration-700">
+              <HardwareTile title="Compute Module 5" icon={Cpu} specs={[
+                ["Core Model", "Broadcom BCM2712", "accent"],
+                ["LPDDR4X Pool", "8192 MB", ""],
+                ["Architecture", "ARM Cortex-A76", ""],
+                ["Max Velocity", "2.4 GHz", "amber"],
+                ["Kernel Build", "6.6.x-SkyRanger", ""],
+                ["Node Role", "Autonomous Pilot", "accent"],
+              ]} />
+            </div>
           )}
 
-          {/* PIXHAWK */}
           {active === "pixhawk" && (
-            <HardwareCard title="Pixhawk 2.4.8 FC" icon="✦" specs={[
-              ["Model", "Pixhawk 2.4.8", "accent"],
-              ["Processor", "STM32F427", ""],
-              ["IMU", "MPU6000 + LSM303D", ""],
-              ["Barometer", "MS5611", ""],
-              ["Connection", "USB / MAVLink", "amber"],
-              ["Baud Rate", "57600", ""],
-              ["Protocol", "MAVLink v2", "accent"],
-              ["Firmware", "ArduCopter", ""],
-              ["Frame Type", "Hexacopter (+)", ""],
-              ["GPS", "External M8N", "green"],
-              ["RC Input", "PWM / SBUS", ""],
-              ["Telemetry", "/dev/ttyACM0", "accent"],
-            ]} />
+            <div className="max-w-4xl animate-in fade-in slide-in-from-right-4 duration-700">
+              <HardwareTile title="Flight Control Core" icon={Shield} specs={[
+                ["MCU Unit", "STM32F427 @ 168MHz", "accent"],
+                ["I/O Protocol", "MAVLink v2.0", "amber"],
+                ["Sensor Fusion", "Dual IMU / EKF3", ""],
+                ["Positioning", "UBLOX M8N L1", "green"],
+                ["Stack Version", "ArduCopter v4.5.x", ""],
+              ]} />
+            </div>
           )}
 
-          {/* GIMBAL */}
-          {active === "gimbal" && (
-            <HardwareCard title="Custom 3-Axis Gimbal" icon="◎" specs={[
-              ["Type", "3-Axis Stabilized", "accent"],
-              ["Design", "Custom Built", "amber"],
-              ["Axis 1", "Roll — Servo", ""],
-              ["Axis 2", "Pitch — Servo", ""],
-              ["Axis 3", "Yaw — Servo", ""],
-              ["Controller", "ESP32", "accent"],
-              ["Camera Mount", "Pi Cam 3 (IMX708)", ""],
-              ["Control", "PWM via ESP32", ""],
-              ["Protocol", "GPIO / PWM", ""],
-              ["Stabilization", "Active (3-axis)", "green"],
-            ]} />
-          )}
-
-          {/* POWER */}
           {active === "power" && (
-            <HardwareCard title="Power System" icon="⚡" specs={[
-              ["Battery", "LiPo (Arranging)", "amber"],
-              ["Backup", "Power Bank", ""],
-              ["Buck Conv.", "5V / 3A Step-Down", "accent"],
-              ["Pi Supply", "5V via Buck Conv.", "green"],
-              ["Pixhawk", "5V via BEC", "green"],
-              ["Servo Power", "5V Rail", ""],
-              ["ESC", "30A × 6", ""],
-              ["Motor KV", "TBD", ""],
-              ["Prop Size", "TBD", ""],
-            ]} />
+            <div className="max-w-4xl animate-in fade-in slide-in-from-right-4 duration-700">
+              <HardwareTile title="Power Distribution" icon={Zap} specs={[
+                ["Main Bus", "LiPo 4S High Discharge", "amber"],
+                ["Logic Supply", "5.1V / 5A Stabilized", "accent"],
+                ["Core Voltage", "Nominal 14.8V", "green"],
+                ["Peak Current", "180A (30A per ESC)", ""],
+              ]} />
+            </div>
           )}
 
-          {/* SENSORS */}
-          {active === "sensors" && (
-            <HardwareCard title="Sensor Suite" icon="◉" specs={[
-              ["DHT11", "Temp + Humidity", "accent"],
-              ["DHT11 Pin", "GPIO 4", ""],
-              ["Vibration", "SW-420", "accent"],
-              ["Vibration Pin", "GPIO 23", ""],
-              ["PIR", "AM312 (Downward)", "accent"],
-              ["PIR Pin", "GPIO 24", ""],
-              ["PIR Range", "~7 meters", "amber"],
-              ["MLX Thermal", "Heatsink Monitor", "accent"],
-              ["LiDAR", "Planned", ""],
-              ["GPS", "M8N via Pixhawk", "green"],
-              ["Barometer", "MS5611 via Pixhawk", "green"],
-              ["IMU", "MPU6000 via Pixhawk", "green"],
-            ]} />
-          )}
-
-          {/* COMMS */}
           {active === "comms" && (
-            <HardwareCard title="Communications" icon="◈" specs={[
-              ["GCS Protocol", "WebSocket", "accent"],
-              ["Telemetry", "MAVLink v2", "accent"],
-              ["MAVLink Port", "/dev/ttyACM0", ""],
-              ["Baud Rate", "57600", ""],
-              ["Network", "WiFi 802.11", "green"],
-              ["Pi IP", PI_IP, "accent"],
-              ["Backend Port", "8000 (FastAPI)", ""],
-              ["Camera Port", "8080 (Flask)", ""],
-              ["DB Port", "5432 (PostgreSQL)", ""],
-              ["ESP32", "Gimbal Control", "amber"],
-              ["RC Protocol", "PWM / SBUS", ""],
-            ]} />
+            <div className="max-w-4xl animate-in fade-in slide-in-from-right-4 duration-700">
+              <HardwareTile title="Comms Infrastructure" icon={Globe} specs={[
+                ["Primary Link", "5.8GHz Tactical WiFi", "accent"],
+                ["MAVLink UART", "115200 Baud / Hardware", "amber"],
+                ["API Backend", "FastAPI / Uvicorn", ""],
+                ["Stream Port", "8080 RTSP/HLS", "green"],
+              ]} />
+            </div>
           )}
-
         </div>
       </div>
+      
+      {/* Visual scanline/grain overlay */}
+      <div className="absolute inset-0 pointer-events-none z-[100] opacity-[0.01] scanlines" />
     </div>
   )
 }

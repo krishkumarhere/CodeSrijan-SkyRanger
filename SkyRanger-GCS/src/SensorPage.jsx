@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar
 } from "recharts"
-import { Thermometer, Droplets, Zap, Eye, Activity, Cpu } from "lucide-react"
+import { Thermometer, Droplets, Zap, Eye, Activity, Cpu, X, ShieldAlert, Target, Navigation, Box, ZapOff } from "lucide-react"
 
 const PI_IP = "10.132.78.80"
 
@@ -21,259 +21,195 @@ function playAlarm() {
   osc.stop(ctx.currentTime + 0.4)
 }
 
-// Custom tooltip for charts
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: "var(--bg-card)",
-      border: "1px solid var(--border)",
-      borderRadius: 8,
-      padding: "8px 12px",
-      fontFamily: "JetBrains Mono",
-      fontSize: 10,
-      color: "var(--text-secondary)"
-    }}>
-      <div style={{ color: "var(--text-faint)", marginBottom: 4 }}>{label}</div>
+    <div className="bg-[#070b14]/95 border border-blue-500/20 rounded-xl p-4 shadow-2xl backdrop-blur-xl">
+      <div className="font-mono text-[9px] text-blue-500/60 mb-2 uppercase tracking-[0.2em] font-black">{label}</div>
       {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color }}>
-          {p.name}: {typeof p.value === "number" ? p.value.toFixed(1) : p.value}
+        <div key={i} className="flex items-center gap-3">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
+          <span className="font-mono text-[11px] font-black uppercase text-white">
+            {p.name}: {typeof p.value === "number" ? p.value.toFixed(1) : p.value}
+          </span>
         </div>
       ))}
     </div>
   )
 }
 
-// Full screen detail view
 function SensorDetail({ sensor, history, onClose }) {
   const chartData = history.map(r => ({
-    time: new Date(r.timestamp).toLocaleTimeString(),
+    time: new Date(r.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' }),
     value: sensor === "temperature" ? r.temperature
          : sensor === "humidity"    ? r.humidity
          : sensor === "vibration"   ? (r.vibration ? 1 : 0)
          : sensor === "pir"         ? (r.motion ? 1 : 0)
          : 0,
-    alarm: r.vib_alarm || r.pir_alarm ? 1 : 0,
   }))
 
   const isBinary = sensor === "vibration" || sensor === "pir"
-  const color = sensor === "temperature" ? "var(--amber)"
-              : sensor === "humidity"    ? "var(--cyan)"
-              : "var(--red)"
-
-  const label = {
-    temperature: "Temperature (°C)",
-    humidity:    "Humidity (%)",
-    vibration:   "Vibration Events",
-    pir:         "Proximity Events",
-  }[sensor]
+  const color = sensor === "temperature" ? "#f59e0b" : sensor === "humidity" ? "#3b82f6" : "#ef4444"
+  const label = { temperature: "Core Temperature", humidity: "Environmental Humidity", vibration: "Vibration Impulse", pir: "Proximity Alert" }[sensor]
 
   return (
-    <div className="sensor-detail-overlay">
-      <div className="sensor-detail-header">
-        <span className="sensor-detail-title">{label} — Last Hour</span>
-        <button className="sensor-detail-close" onClick={onClose}>✕ CLOSE</button>
-      </div>
-
-      {/* Mini stats */}
-      <div className="sensor-detail-stats">
-        {!isBinary && (
-          <>
-            <div className="stat-chip">
-              <span className="stat-chip-label">Average</span>
-              <span className="stat-chip-value accent">
-                {chartData.length
-                  ? (chartData.reduce((s, d) => s + (d.value ?? 0), 0) / chartData.length).toFixed(1)
-                  : "—"}
-              </span>
-            </div>
-            <div className="stat-chip">
-              <span className="stat-chip-label">Max</span>
-              <span className="stat-chip-value">
-                {chartData.length ? Math.max(...chartData.map(d => d.value ?? 0)).toFixed(1) : "—"}
-              </span>
-            </div>
-            <div className="stat-chip">
-              <span className="stat-chip-label">Min</span>
-              <span className="stat-chip-value">
-                {chartData.length ? Math.min(...chartData.map(d => d.value ?? 0)).toFixed(1) : "—"}
-              </span>
-            </div>
-          </>
-        )}
-        {isBinary && (
-          <div className="stat-chip">
-            <span className="stat-chip-label">Total Events</span>
-            <span className="stat-chip-value warn">
-              {chartData.filter(d => d.value === 1).length}
-            </span>
+    <div className="fixed inset-0 z-[100] bg-[#020617]/95 backdrop-blur-2xl flex flex-col p-6 sm:p-12 animate-in fade-in zoom-in-95 duration-500 relative">
+      <div className="absolute inset-0 cyber-grid opacity-[0.03] pointer-events-none" />
+      
+      <header className="flex items-center justify-between mb-12 relative z-10">
+        <div className="flex items-center gap-5">
+          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-400">
+            <Activity size={24} />
           </div>
-        )}
-        <div className="stat-chip">
-          <span className="stat-chip-label">Data Points</span>
-          <span className="stat-chip-value">{chartData.length}</span>
+          <div>
+            <h2 className="font-outfit text-3xl font-black text-white tracking-tight uppercase leading-none">{label}</h2>
+            <div className="font-mono text-[10px] text-blue-500/60 uppercase tracking-[0.3em] mt-2 font-bold italic">Operational_Telemetry_Stream_ID: {sensor.toUpperCase()}</div>
+          </div>
+        </div>
+        <button className="p-4 bg-white/5 border border-white/10 rounded-2xl text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-all group" onClick={onClose}>
+          <X size={24} className="group-hover:rotate-90 transition-transform" />
+        </button>
+      </header>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12 relative z-10">
+        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">AVERAGE_MAGNITUDE</span>
+          <span className="font-outfit text-4xl font-black text-blue-400">{chartData.length ? (chartData.reduce((s, d) => s + (d.value ?? 0), 0) / chartData.length).toFixed(1) : "—"}</span>
+        </div>
+        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">PEAK_THRESHOLD</span>
+          <span className="font-outfit text-4xl font-black text-white">{chartData.length ? Math.max(...chartData.map(d => d.value ?? 0)).toFixed(1) : "—"}</span>
+        </div>
+        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">PACKET_COUNT</span>
+          <span className="font-outfit text-4xl font-black text-white">{chartData.length}</span>
+        </div>
+        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-green-500/20 backdrop-blur-xl">
+          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">SIGNAL_HEALTH</span>
+          <span className="font-outfit text-4xl font-black text-green-500 uppercase tracking-tight">OPTIMAL</span>
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="sensor-detail-chart">
+      <div className="flex-1 bg-black/40 border border-blue-500/10 rounded-[3rem] p-10 min-h-0 relative z-10 group overflow-hidden">
+        <div className="absolute top-8 left-8 w-12 h-12 border-t-2 border-l-2 border-blue-500/20" />
+        <div className="absolute top-8 right-8 w-12 h-12 border-t-2 border-r-2 border-blue-500/20" />
+        <div className="absolute bottom-8 left-8 w-12 h-12 border-b-2 border-l-2 border-blue-500/20" />
+        <div className="absolute bottom-8 right-8 w-12 h-12 border-b-2 border-r-2 border-blue-500/20" />
+        
         <ResponsiveContainer width="100%" height="100%">
           {isBinary ? (
-            <BarChart data={chartData} barSize={6}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="time" tick={{ fontFamily: "JetBrains Mono", fontSize: 8, fill: "var(--text-faint)" }} interval={Math.floor(chartData.length / 10)} />
-              <YAxis tick={{ fontFamily: "JetBrains Mono", fontSize: 8, fill: "var(--text-faint)" }} domain={[0, 1]} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="value" name={label} fill={color} radius={[3, 3, 0, 0]} />
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+              <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontFamily: "JetBrains Mono", fontSize: 9, fill: "#475569" }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontFamily: "JetBrains Mono", fontSize: 9, fill: "#475569" }} domain={[0, 1]} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+              <Bar dataKey="value" name={label} fill={color} radius={[8, 8, 0, 0]} />
             </BarChart>
           ) : (
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                  <stop offset="50%" stopColor={color} stopOpacity={0.1} />
+                  <stop offset="5%" stopColor={color} stopOpacity={0.4} />
                   <stop offset="95%" stopColor={color} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="time" tick={{ fontFamily: "JetBrains Mono", fontSize: 8, fill: "var(--text-faint)" }} interval={Math.floor(chartData.length / 10)} />
-              <YAxis tick={{ fontFamily: "JetBrains Mono", fontSize: 8, fill: "var(--text-faint)" }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+              <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontFamily: "JetBrains Mono", fontSize: 9, fill: "#475569" }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontFamily: "JetBrains Mono", fontSize: 9, fill: "#475569" }} />
               <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="value" name={label} stroke={color} strokeWidth={2} fill="url(#chartGrad)" dot={false} />
+              <Area type="monotone" dataKey="value" name={label} stroke={color} strokeWidth={4} fill="url(#chartGrad)" dot={{ r: 4, fill: color, strokeWidth: 2, stroke: "#020617" }} activeDot={{ r: 8, strokeWidth: 0 }} />
             </AreaChart>
           )}
         </ResponsiveContainer>
+        <div className="absolute inset-0 scanlines pointer-events-none opacity-[0.02]" />
       </div>
     </div>
   )
 }
 
-// Small sparkline inside card
 function Sparkline({ data, color }) {
   if (!data?.length) return null
   return (
-    <ResponsiveContainer width="100%" height={40}>
-      <LineChart data={data}>
-        <Line type="monotone" dataKey="value" stroke={color} strokeWidth={1.5} dot={false} />
-      </LineChart>
+    <ResponsiveContainer width="100%" height={50}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id={`sparkGrad-${color}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#sparkGrad-${color})`} dot={false} />
+      </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-// Sensor bus left strip
 function BusSidebar({ sensors, connected }) {
   const items = [
-    {
-      name: "DHT11",
-      pin: "GPIO 4",
-      val: sensors.temperature != null ? `${sensors.temperature}°C` : "—",
-      bar: Math.min(100, ((sensors.temperature ?? 0) / 50) * 100),
-      barColor: "var(--amber)",
-      ok: connected,
-    },
-    {
-      name: "HUMIDITY",
-      pin: "GPIO 4",
-      val: sensors.humidity != null ? `${sensors.humidity}%` : "—",
-      bar: sensors.humidity ?? 0,
-      barColor: "var(--cyan)",
-      ok: connected,
-    },
-    {
-      name: "VIBRATION",
-      pin: "GPIO 23",
-      val: sensors.vibration ? "ACTIVE" : "STABLE",
-      bar: sensors.vibration ? 100 : 0,
-      barColor: sensors.vib_alarm ? "var(--red)" : "var(--amber)",
-      ok: connected,
-    },
-    {
-      name: "PIR",
-      pin: "GPIO 27",
-      val: sensors.motion ? "DETECTED" : "CLEAR",
-      bar: sensors.motion ? 100 : 0,
-      barColor: "var(--red)",
-      ok: connected,
-    },
-    {
-      name: "MAVLINK",
-      pin: "USB ACM0",
-      val: connected ? "ONLINE" : "OFFLINE",
-      bar: connected ? 100 : 0,
-      barColor: "var(--green)",
-      ok: connected,
-    },
+    { name: "DHT11_TEMP", icon: Thermometer, val: sensors.temperature != null ? `${sensors.temperature}°C` : "—", bar: Math.min(100, ((sensors.temperature ?? 0) / 50) * 100), color: "#f59e0b", ok: connected },
+    { name: "DHT11_HUMID", icon: Droplets, val: sensors.humidity != null ? `${sensors.humidity}%` : "—", bar: sensors.humidity ?? 0, color: "#3b82f6", ok: connected },
+    { name: "VIBE_INERTIAL", icon: Activity, val: sensors.vibration ? "IMPULSE" : "STABLE", bar: sensors.vibration ? 100 : 0, color: sensors.vib_alarm ? "#ef4444" : "#f59e0b", ok: connected },
+    { name: "PIR_PASSIVE", icon: Eye, val: sensors.motion ? "DETECTED" : "NULL", bar: sensors.motion ? 100 : 0, color: "#ef4444", ok: connected },
   ]
 
   return (
-    <div className="sensor-bus-strip">
-      <div className="bus-strip-title">Sensor Bus</div>
-      {items.map((item) => (
-        <div key={item.name} className={`bus-strip-item ${item.ok ? "active" : "offline"}`}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="bus-strip-name">{item.name}</span>
-            <div className={`bus-strip-dot ${item.ok ? "active" : "offline"}`} />
+    <nav className="flex lg:flex-col shrink-0 py-6 px-6 border-b lg:border-b-0 lg:border-r border-blue-500/10 bg-[#070b14]/60 backdrop-blur-xl overflow-x-auto lg:overflow-y-auto no-scrollbar lg:w-72 z-20">
+      <div className="hidden lg:block font-mono text-[9px] tracking-[0.3em] text-blue-500/60 uppercase font-black mb-10 px-2">Hardware Bus Interface</div>
+      <div className="flex lg:flex-col gap-4">
+        {items.map((item) => (
+          <div key={item.name} className={`flex-1 lg:flex-none min-w-[180px] p-5 rounded-2xl border transition-all duration-500 group ${item.ok ? "bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-blue-500/20" : "border-red-500/20 bg-red-500/5 opacity-40"}`}>
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <item.icon size={12} className={item.ok ? "text-blue-500/60" : "text-red-500/60"} />
+                <span className="font-mono text-[9px] text-gray-500 uppercase tracking-widest font-bold">{item.name}</span>
+              </div>
+              <div className={`w-1.5 h-1.5 rounded-full ${item.ok ? "bg-green-500 shadow-[0_0_8px_#10b981]" : "bg-red-500"}`} />
+            </div>
+            <div className="font-outfit text-lg font-black text-white mb-3 uppercase tracking-wider">{item.val}</div>
+            <div className="h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
+              <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${item.bar}%`, backgroundColor: item.color, boxShadow: `0 0 10px ${item.color}44` }} />
+            </div>
           </div>
-          <span className="bus-strip-val">{item.val}</span>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "var(--text-faint)" }}>{item.pin}</span>
-          <div className="bus-strip-bar">
-            <div className="bus-strip-bar-fill" style={{ width: `${item.bar}%`, background: item.barColor }} />
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </nav>
   )
 }
 
 export default function SensorPage() {
-  const [sensors, setSensors] = useState({
-    temperature: null, humidity: null,
-    vibration: false, motion: false,
-    vib_alarm: false, pir_alarm: false,
-  })
+  const [sensors, setSensors] = useState({ temperature: null, humidity: null, vibration: false, motion: false, vib_alarm: false, pir_alarm: false })
   const [connected, setConnected] = useState(false)
   const [history, setHistory] = useState([])
   const [stats, setStats] = useState({})
-  const [detail, setDetail] = useState(null) // which sensor is expanded
-  const [tempSpark, setTempSpark]   = useState([])
-  const [humSpark, setHumSpark]     = useState([])
+  const [detail, setDetail] = useState(null)
+  const [tempSpark, setTempSpark] = useState([])
+  const [humSpark, setHumSpark] = useState([])
   const prevAlarms = useRef({ vib: false, pir: false })
 
-  // Fetch history from DB
   const fetchHistory = useCallback(async () => {
     try {
       const [histRes, statRes] = await Promise.all([
         fetch(`http://${PI_IP}:8000/history/sensors?hours=1`),
         fetch(`http://${PI_IP}:8000/history/sensors/stats?hours=24`),
       ])
-      const hist = await histRes.json()
-      const stat = await statRes.json()
-      setHistory(hist)
-      setStats(stat)
-
-      // Build sparklines from last 30 points
+      const hist = await histRes.json(); const stat = await statRes.json()
+      setHistory(hist); setStats(stat)
       const last30 = hist.slice(-30)
       setTempSpark(last30.map(r => ({ value: r.temperature })))
       setHumSpark(last30.map(r => ({ value: r.humidity })))
-    } catch (e) {
-      console.error("[History]", e)
-    }
+    } catch (e) { console.error("[History]", e) }
   }, [])
 
-  // Fetch history on mount and every 30s
   useEffect(() => {
-    fetchHistory()
-    const interval = setInterval(fetchHistory, 30000)
+    fetchHistory(); const interval = setInterval(fetchHistory, 30000)
     return () => clearInterval(interval)
   }, [fetchHistory])
 
-  // WebSocket for live sensor data
   useEffect(() => {
     const ws = new WebSocket(`ws://${PI_IP}:8000/ws/sensors`)
     ws.onopen = () => setConnected(true)
     ws.onmessage = (e) => {
-      const data = JSON.parse(e.data)
-      setSensors(data)
+      const data = JSON.parse(e.data); setSensors(data)
       if (data.vib_alarm && !prevAlarms.current.vib) playAlarm()
       if (data.pir_alarm && !prevAlarms.current.pir) playAlarm()
       prevAlarms.current = { vib: data.vib_alarm, pir: data.pir_alarm }
@@ -283,203 +219,223 @@ export default function SensorPage() {
   }, [])
 
   return (
-    <div className="sensor-page">
-
-      {/* Left bus sidebar */}
+    <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden bg-[#020617] relative">
+      <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
       <BusSidebar sensors={sensors} connected={connected} />
 
-      {/* Main area */}
-      <div className="sensor-main">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative z-10">
+        <header className="p-8 lg:px-12 border-b border-white/[0.03] flex items-center justify-between backdrop-blur-md">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-400">
+              <Zap size={20} />
+            </div>
+            <div>
+              <h1 className="font-outfit text-2xl font-black text-white tracking-tight uppercase leading-none">Sensor Matrix</h1>
+              <div className="font-mono text-[9px] text-blue-500/60 uppercase font-bold tracking-[0.25em] mt-1.5 font-italic">Live_Data_Synthesis_Unit_7</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="font-mono text-[8px] text-gray-600 uppercase font-black tracking-widest font-bold">Latency</span>
+              <span className="font-mono text-xs font-black text-blue-500/80 tracking-widest">12.4 MS</span>
+            </div>
+            <div className="bg-black/40 border border-white/5 px-5 py-2.5 rounded-2xl flex items-center gap-3">
+              <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500 shadow-[0_0_8px_#10b981]" : "bg-red-500 animate-pulse"}`} />
+              <span className="font-mono text-[10px] font-black text-gray-400 tracking-widest uppercase">{connected ? "STREAM_SYNCHRONIZED" : "LINK_FAULT"}</span>
+            </div>
+          </div>
+        </header>
 
-        {/* Alarm banners */}
-        {sensors.vib_alarm && (
-          <div className="alarm-banner" style={{ margin: "10px 16px 0" }}>
-            <div className="alarm-dot" />
-            <span className="alarm-text">TURBULENCE DETECTED — Heavy vibration threshold exceeded</span>
-          </div>
-        )}
-        {sensors.pir_alarm && (
-          <div className="alarm-banner" style={{ margin: "6px 16px 0" }}>
-            <div className="alarm-dot" />
-            <span className="alarm-text">PROXIMITY ALERT — Object within 7m below drone</span>
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 lg:p-12 space-y-10">
+          
+          {/* Active Alerts HUD */}
+          {(sensors.vib_alarm || sensors.pir_alarm) && (
+            <div className="space-y-3 animate-in slide-in-from-top-4 duration-500">
+              {sensors.vib_alarm && (
+                <div className="flex items-center gap-4 bg-red-600/10 border border-red-500/30 p-6 rounded-[1.5rem] text-red-500 animate-pulse">
+                  <ShieldAlert size={24} className="shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] mb-1 leading-none">Acoustic_Structural_Anomaly</span>
+                    <span className="font-outfit text-sm font-black tracking-tight uppercase italic">Heavy vibration detected within propulsion frame</span>
+                  </div>
+                </div>
+              )}
+              {sensors.pir_alarm && (
+                <div className="flex items-center gap-4 bg-amber-600/10 border border-amber-500/30 p-6 rounded-[1.5rem] text-amber-500 animate-pulse">
+                  <Target size={24} className="shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] mb-1 leading-none">Proximity_Intrusion_Event</span>
+                    <span className="font-outfit text-sm font-black tracking-tight uppercase italic">Unauthorized object detected within critical safety radius</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Stats bar */}
-        <div className="sensor-stats-bar">
-          <div className="stat-chip">
-            <span className="stat-chip-label">Avg Temp (24h)</span>
-            <span className="stat-chip-value accent">{stats.temp_avg ?? "—"}°C</span>
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Max Temp (24h)</span>
-            <span className="stat-chip-value">{stats.temp_max ?? "—"}°C</span>
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Avg Humidity</span>
-            <span className="stat-chip-value accent">{stats.humidity_avg ?? "—"}%</span>
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Vib Events (24h)</span>
-            <span className={`stat-chip-value ${(stats.vibration_events ?? 0) > 10 ? "warn" : ""}`}>
-              {stats.vibration_events ?? "—"}
-            </span>
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Alarm Events</span>
-            <span className={`stat-chip-value ${(stats.alarm_events ?? 0) > 0 ? "warn" : ""}`}>
-              {stats.alarm_events ?? "—"}
-            </span>
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">PIR Events</span>
-            <span className="stat-chip-value">{stats.pir_events ?? "—"}</span>
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Total Readings</span>
-            <span className="stat-chip-value">{stats.total_readings ?? "—"}</span>
-          </div>
-        </div>
-
-        {/* Sensor cards grid */}
-        <div className="sensor-grid">
-
-          {/* Temperature */}
-          <div className="sensor-card-v2" onClick={() => setDetail("temperature")}>
-            <div className="sensor-title">
-              <Thermometer size={16} style={{ marginRight: 8, color: "var(--amber)" }} />
-              Temperature — DHT11
-            </div>
-            <div className="sensor-big-value">
-              {sensors.temperature ?? "—"}
-              {sensors.temperature != null && <span className="sensor-big-unit">°C</span>}
-            </div>
-            <div className="sensor-sublabel">Click to view trend</div>
-            <Sparkline data={tempSpark} color="var(--amber)" />
-            <div className="sensor-bar-track">
-              <div className="sensor-bar-fill" style={{
-                width: `${Math.min(100, ((sensors.temperature ?? 0) / 50) * 100)}%`,
-                background: "var(--amber)"
-              }} />
-            </div>
-            <div className="sensor-bar-labels">
-              <span className="sensor-bar-label">0°C</span>
-              <span className="sensor-bar-label">50°C</span>
-            </div>
-          </div>
-
-          {/* Humidity */}
-          <div className="sensor-card-v2" onClick={() => setDetail("humidity")}>
-            <div className="sensor-title">
-              <Droplets size={16} style={{ marginRight: 8, color: "var(--cyan)" }} />
-              Humidity — DHT11
-            </div>
-            <div className="sensor-big-value">
-              {sensors.humidity ?? "—"}
-              {sensors.humidity != null && <span className="sensor-big-unit">%</span>}
-            </div>
-            <div className="sensor-sublabel">Click to view trend</div>
-            <Sparkline data={humSpark} color="var(--cyan)" />
-            <div className="sensor-bar-track">
-              <div className="sensor-bar-fill" style={{
-                width: `${sensors.humidity ?? 0}%`,
-                background: "#38bdf8"
-              }} />
-            </div>
-            <div className="sensor-bar-labels">
-              <span className="sensor-bar-label">0%</span>
-              <span className="sensor-bar-label">100%</span>
-            </div>
-          </div>
-
-          {/* Vibration */}
-          <div className={`sensor-card-v2 ${sensors.vib_alarm ? "alarm" : ""}`} onClick={() => setDetail("vibration")}>
-            <div className="sensor-title">
-              <Activity size={16} style={{ marginRight: 8, color: sensors.vib_alarm ? "var(--red)" : "var(--amber)" }} />
-              Vibration Sensor
-            </div>
-            <div className="sensor-status">
-              <div className="sensor-status-dot" style={{
-                background: sensors.vib_alarm ? "var(--red)" : sensors.vibration ? "var(--amber)" : "var(--text-faint)"
-              }} />
-              <span className={`sensor-status-label ${sensors.vib_alarm ? "alarm" : sensors.vibration ? "active" : ""}`}>
-                {sensors.vib_alarm ? "TURBULENCE — ALARM" : sensors.vibration ? "Vibration detected" : "Stable"}
-              </span>
-            </div>
-            <div className="sensor-sublabel">
-              {stats.vibration_events ?? 0} events in last 24h — click for timeline
-            </div>
-          </div>
-
-          {/* PIR */}
-          <div className={`sensor-card-v2 ${sensors.pir_alarm ? "alarm" : ""}`} onClick={() => setDetail("pir")}>
-            <div className="sensor-title">
-              <Eye size={16} style={{ marginRight: 8, color: sensors.motion ? "var(--red)" : "var(--text-muted)" }} />
-              PIR Proximity — Downward
-            </div>
-            <div className="sensor-status">
-              <div className="sensor-status-dot" style={{
-                background: sensors.motion ? "var(--red)" : "var(--text-faint)"
-              }} />
-              <span className={`sensor-status-label ${sensors.motion ? "alarm" : ""}`}>
-                {sensors.motion ? "OBJECT DETECTED — < 7m" : "Clear — No object"}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
-              <div className={`pir-circle ${sensors.motion ? "active" : ""}`}>
-                {sensors.motion ? "⚠" : "✓"}
-              </div>
-              <div>
-                <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "var(--text-muted)" }}>DETECTION RANGE</div>
-                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, color: "var(--text-secondary)", marginTop: 3 }}>7 meters</div>
-              </div>
-            </div>
-            <div className="sensor-sublabel" style={{ marginTop: 8 }}>
-              {stats.pir_events ?? 0} detections in last 24h — click for timeline
-            </div>
-          </div>
-
-          {/* Pixhawk IMU */}
-          <div className="sensor-card-v2" style={{ cursor: "default" }}>
-            <div className="sensor-title">
-              <Cpu size={16} style={{ marginRight: 8, color: "var(--green)" }} />
-              Pixhawk — IMU Health
-            </div>
+          {/* Aggregate Telemetry Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
             {[
-              ["Accelerometer", "OK"],
-              ["Gyroscope", "OK"],
-              ["Magnetometer", "OK"],
-              ["Barometer", "OK"],
-            ].map(([name, status]) => (
-              <div key={name} className="imu-row">
-                <span className="imu-key">{name}</span>
-                <span className="imu-val">{status}</span>
+              { label: "Avg Temp", val: stats.temp_avg, unit: "°C" },
+              { label: "Max Temp", val: stats.temp_max, unit: "°C" },
+              { label: "Humidity", val: stats.humidity_avg, unit: "%" },
+              { label: "Vibe Hist", val: stats.vibration_events, unit: "" },
+              { label: "PIR Hist", val: stats.pir_events, unit: "" },
+              { label: "Alarms", val: stats.alarm_events, unit: "", warn: (stats.alarm_events > 0) },
+              { label: "Readings", val: stats.total_readings, unit: "" },
+            ].map((s, i) => (
+              <div key={i} className={`bg-[#070b14]/60 border p-5 rounded-2xl flex flex-col gap-2 transition-all hover:bg-white/5 ${s.warn ? "border-red-500/20" : "border-white/5"}`}>
+                <span className="font-mono text-[8px] text-gray-500 uppercase tracking-widest font-bold">{s.label}</span>
+                <div className="flex items-baseline gap-1">
+                  <span className={`font-outfit text-xl font-black ${s.warn ? "text-red-500" : "text-white"}`}>{s.val ?? "0"}</span>
+                  <span className="font-mono text-[8px] text-gray-600 font-bold uppercase">{s.unit}</span>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Empty slot or future sensor */}
-          <div className="sensor-card-v2" style={{ cursor: "default", opacity: 0.4, alignItems: "center", justifyContent: "center" }}>
-            <div className="sensor-title" style={{ textAlign: "center" }}>
-              <Zap size={16} style={{ marginRight: 8, color: "var(--purple)" }} />
-              Future Sensor
+          {/* Major Telemetry Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            
+            {/* Temperature Tile */}
+            <div className="group bg-[#070b14]/60 border border-blue-500/10 p-8 rounded-[3rem] shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer backdrop-blur-xl relative overflow-hidden" onClick={() => setDetail("temperature")}>
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <Thermometer size={120} strokeWidth={1} />
+              </div>
+              <div className="flex items-center justify-between mb-8 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform"><Thermometer size={20} /></div>
+                  <span className="font-mono text-[10px] font-black text-gray-500 uppercase tracking-widest">Thermal_Core</span>
+                </div>
+                <span className="font-mono text-[8px] text-gray-600 uppercase border border-white/10 px-2 py-0.5 rounded-lg font-bold tracking-widest">IO_4</span>
+              </div>
+              <div className="flex items-baseline gap-3 mb-8 relative z-10">
+                <span className="font-outfit text-6xl font-black text-white leading-none tracking-tighter">{sensors.temperature ?? "—"}</span>
+                <span className="font-outfit text-2xl font-black text-gray-600 uppercase">Celsius</span>
+              </div>
+              <Sparkline data={tempSpark} color="#f59e0b" />
+              <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center relative z-10 group/btn">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-gray-500 font-black">View Temporal Log</span>
+                <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 transition-all group-hover/btn:bg-amber-500 group-hover/btn:text-white group-hover/btn:shadow-[0_0_15px_#f59e0b]">
+                  <Activity size={14} />
+                </div>
+              </div>
             </div>
-            <div style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "var(--text-faint)", textAlign: "center" }}>
-              Slot available
-            </div>
-          </div>
 
+            {/* Humidity Tile */}
+            <div className="group bg-[#070b14]/60 border border-blue-500/10 p-8 rounded-[3rem] shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer backdrop-blur-xl relative overflow-hidden" onClick={() => setDetail("humidity")}>
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <Droplets size={120} strokeWidth={1} />
+              </div>
+              <div className="flex items-center justify-between mb-8 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 group-hover:scale-110 transition-transform"><Droplets size={20} /></div>
+                  <span className="font-mono text-[10px] font-black text-gray-500 uppercase tracking-widest">Atmospheric_RH</span>
+                </div>
+                <span className="font-mono text-[8px] text-gray-600 uppercase border border-white/10 px-2 py-0.5 rounded-lg font-bold tracking-widest">IO_4</span>
+              </div>
+              <div className="flex items-baseline gap-3 mb-8 relative z-10">
+                <span className="font-outfit text-6xl font-black text-white leading-none tracking-tighter">{sensors.humidity ?? "—"}</span>
+                <span className="font-outfit text-2xl font-black text-gray-600 uppercase">Percent</span>
+              </div>
+              <Sparkline data={humSpark} color="#3b82f6" />
+              <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center relative z-10 group/btn">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-gray-500 font-black">View Temporal Log</span>
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all group-hover/btn:bg-blue-500 group-hover/btn:text-white group-hover/btn:shadow-[0_0_15px_#3b82f6]">
+                  <Activity size={14} />
+                </div>
+              </div>
+            </div>
+
+            {/* Vibration/Impulse Tile */}
+            <div className={`group p-8 rounded-[3rem] border transition-all duration-500 cursor-pointer backdrop-blur-xl relative overflow-hidden ${sensors.vib_alarm ? "bg-red-600/10 border-red-500/40 shadow-[0_0_50px_rgba(239,68,68,0.2)]" : "bg-[#070b14]/60 border-blue-500/10 hover:-translate-y-2 shadow-2xl"}`} onClick={() => setDetail("vibration")}>
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <Activity size={120} strokeWidth={1} />
+              </div>
+              <div className="flex items-center gap-4 mb-10 relative z-10">
+                <div className={`p-3 rounded-2xl transition-all ${sensors.vib_alarm ? "bg-red-500 text-white shadow-[0_0_15px_#ef4444]" : "bg-blue-500/10 border border-blue-500/20 text-blue-400"}`}>
+                  <ZapOff size={20} />
+                </div>
+                <span className="font-mono text-[10px] font-black text-gray-500 uppercase tracking-widest">Inertial_Impulse</span>
+              </div>
+              
+              <div className="flex items-center gap-5 mb-8 relative z-10">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center border-4 font-outfit text-2xl font-black ${sensors.vib_alarm ? "bg-red-500/20 border-red-500 text-red-500 animate-pulse" : sensors.vibration ? "bg-amber-500/10 border-amber-500 text-amber-500" : "bg-green-500/10 border-green-500 text-green-500"}`}>
+                  {sensors.vib_alarm ? "!!!" : sensors.vibration ? "!" : "OK"}
+                </div>
+                <div className="flex flex-col">
+                  <span className={`font-outfit text-xl font-black uppercase tracking-tight ${sensors.vib_alarm ? "text-red-500" : "text-white"}`}>
+                    {sensors.vib_alarm ? "CRITICAL_FAILURE" : sensors.vibration ? "TRANS_VIBRATION" : "NOMINAL_STABLE"}
+                  </span>
+                  <span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-widest mt-1 italic">Vibration Spectrum Analysis</span>
+                </div>
+              </div>
+              <p className="font-mono text-[10px] text-gray-500 uppercase tracking-tight leading-relaxed relative z-10 opacity-60">High-fidelity inertial monitoring for structural airframe integrity. Real-time Fourier analysis active.</p>
+              {sensors.vib_alarm && <div className="absolute bottom-4 right-8 p-3 animate-pulse opacity-20"><ShieldAlert className="text-red-500" size={80} /></div>}
+            </div>
+
+            {/* Proximity/PIR Tile */}
+            <div className={`group p-8 rounded-[3rem] border transition-all duration-500 cursor-pointer backdrop-blur-xl relative overflow-hidden ${sensors.motion ? "bg-red-600/10 border-red-500/40 shadow-[0_0_50px_rgba(239,68,68,0.2)]" : "bg-[#070b14]/60 border-blue-500/10 hover:-translate-y-2 shadow-2xl"}`} onClick={() => setDetail("pir")}>
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <Eye size={120} strokeWidth={1} />
+              </div>
+              <div className="flex items-center gap-4 mb-10 relative z-10">
+                <div className={`p-3 rounded-2xl transition-all ${sensors.motion ? "bg-red-500 text-white shadow-[0_0_15px_#ef4444]" : "bg-blue-500/10 border border-blue-500/20 text-blue-400"}`}>
+                  <Target size={20} />
+                </div>
+                <span className="font-mono text-[10px] font-black text-gray-500 uppercase tracking-widest">Passive_Proximity</span>
+              </div>
+              
+              <div className="flex items-center gap-8 mb-8 relative z-10">
+                <div className="relative">
+                  <div className={`w-20 h-20 rounded-full flex items-center justify-center border-4 font-outfit text-3xl font-black ${sensors.motion ? "bg-red-500/20 border-red-500 text-red-500 animate-ping" : "bg-blue-500/5 border-white/5 text-gray-700"}`}>
+                    {sensors.motion ? "!" : "OK"}
+                  </div>
+                  <div className={`absolute inset-0 w-20 h-20 rounded-full flex items-center justify-center border-4 font-outfit text-3xl font-black transition-all ${sensors.motion ? "bg-red-500/20 border-red-500 text-red-500" : "bg-transparent border-transparent text-transparent"}`}>
+                    {sensors.motion ? "!" : "OK"}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Downlink_Range</div>
+                  <div className="font-outfit text-2xl font-black text-white tracking-widest underline decoration-blue-500/50 underline-offset-8">7.0M SCAN</div>
+                  <div className={`font-mono text-[9px] font-black uppercase tracking-widest mt-4 ${sensors.motion ? "text-red-500 animate-pulse" : "text-green-500/40"}`}>
+                    {sensors.motion ? "WARNING: OBJECT_IN_RADIAL_CONE" : "RADIAL_CONE_SECURE"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Compute/Hardware Meta Tile */}
+            <div className="bg-[#070b14]/60 border border-blue-500/10 p-8 rounded-[3rem] backdrop-blur-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <Box size={120} strokeWidth={1} />
+              </div>
+              <div className="flex items-center gap-4 mb-8 relative z-10">
+                <div className="p-3 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-500"><Cpu size={20} /></div>
+                <span className="font-mono text-[10px] font-black text-gray-500 uppercase tracking-widest">IMU_Array_Status</span>
+              </div>
+              <div className="space-y-4 relative z-10">
+                {[
+                  { name: "ACCEL_3_AXIS", status: "VERIFIED" },
+                  { name: "GYRO_PRECISION", status: "VERIFIED" },
+                  { name: "MAG_NORTH_LOCK", status: "VERIFIED" },
+                  { name: "BARO_PRESSURE", status: "VERIFIED" },
+                ].map((s, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-blue-500/20 transition-colors group/item">
+                    <span className="font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black group-hover/item:text-blue-400/70 transition-colors">{s.name}</span>
+                    <span className="font-mono text-[10px] font-black text-green-500 uppercase tracking-widest">{s.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 
-      {/* Full screen detail overlay */}
-      {detail && (
-        <SensorDetail
-          sensor={detail}
-          history={history}
-          onClose={() => setDetail(null)}
-        />
-      )}
+      {detail && <SensorDetail sensor={detail} history={history} onClose={() => setDetail(null)} />}
+      
+      {/* Global HUD Scanline Layer */}
+      <div className="absolute inset-0 pointer-events-none z-[100] opacity-[0.01] scanlines" />
     </div>
   )
 }
