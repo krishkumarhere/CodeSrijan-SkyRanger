@@ -1,130 +1,268 @@
 # app.py
-from flask import Flask, Response, jsonify, request
+
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
+
+import threading
 import time
+
 from camera import usb_camera, pi_camera
 from thermal_cam import thermal_camera
-import threading
+
+# ─────────────────────────────────────────────────────────────
+# OPTIONAL AI IMPORT
+# ─────────────────────────────────────────────────────────────
 
 try:
     from ai_core.pipeline.inference_pipeline import InferencePipeline
+
     HAS_AI = True
+
 except ImportError:
+
     HAS_AI = False
+
     print("[WARN] ai_core not found, running without AI inference")
+
+# ─────────────────────────────────────────────────────────────
+# FLASK APP
+# ─────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
 CORS(app)
 
-# ── AI Inference State ────────────────────────────────────────────────
-latest_detections = {"mode": "IDLE", "detections": [], "timestamp": 0}
+# ─────────────────────────────────────────────────────────────
+# AI STATE
+# ─────────────────────────────────────────────────────────────
+
+latest_detections = {
+    "mode": "IDLE",
+    "detections": [],
+    "timestamp": 0
+}
+
 pipeline = InferencePipeline() if HAS_AI else None
+
 ai_lock = threading.Lock()
 
+# ─────────────────────────────────────────────────────────────
+# AI WORKER
+# Targets Pi Camera ONLY
+# ─────────────────────────────────────────────────────────────
+
 def ai_worker():
-    """Background thread for local AI inference - Targeting Pi Cam 3"""
+
     global latest_detections
-    print("[AI] Worker started (Targeting Pi Cam 3)")
+
+    print("[AI] Worker started (Pi Cam 3 inference)")
+
     while True:
-        if not HAS_AI or not pi_camera.streaming:
+
+        if not HAS_AI:
             time.sleep(1)
             continue
-            
-        # AI typically needs the raw frame (numpy array)
-        frame = pi_camera.last_frame
-        if frame is None:
-            time.sleep(0.1)
+
+        if not pi_camera.streaming:
+            time.sleep(1)
             continue
-            
+
+        frame = pi_camera.last_frame
+
+        if frame is None:
+            time.sleep(0.05)
+            continue
+
         try:
+
             result = pipeline.run(frame)
+
             with ai_lock:
+
                 latest_detections = {
                     "mode": result.mode,
                     "detections": result.detections,
                     "timestamp": time.time()
                 }
+
         except Exception as e:
+
             print(f"[AI] Error: {e}")
+
+        # AI intentionally throttled
         time.sleep(0.3)
 
-threading.Thread(target=ai_worker, daemon=True).start()
+# Start AI thread
+threading.Thread(
+    target=ai_worker,
+    daemon=True
+).start()
 
-# ── Streaming Generators ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# STREAM GENERATOR
+# ─────────────────────────────────────────────────────────────
 
-def generate_stream(camera_obj, fps_throttle=0):
-    """Universal generator for any camera object"""
+def generate_stream(camera_obj, fps_throttle=0.03):
+
     while True:
-        fps_throttle=0.06
+
         frame = camera_obj.get_frame()
+
         if frame is None:
+            time.sleep(0.01)
             continue
+
         yield (
             b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' +
+            frame +
+            b'\r\n'
         )
+
+        # Stream throttle
+        time.sleep(fps_throttle)
+
+# ─────────────────────────────────────────────────────────────
+# ROOT
+# ─────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
+
     return jsonify({
-        "status": "SkyRanger Dual-Stream Server Active",
+
+        "status": "SkyRanger Dual Camera Server Active",
+
         "cameras": {
             "usb": usb_camera.streaming,
             "pi": pi_camera.streaming
         },
-        "endpoints": {
+
+        "streams": {
             "usb_stream": "/stream/usb",
             "pi_stream": "/stream/pi",
-            "thermal_stream": "/thermal/stream",
+            "thermal_stream": "/thermal/stream"
+        },
+
+        "ai": {
             "detections": "/camera/detections"
         }
     })
 
+# ─────────────────────────────────────────────────────────────
+# USB FPV STREAM
+# Logitech C270
+# ─────────────────────────────────────────────────────────────
+
 @app.route('/stream/usb')
 def stream_usb():
-    return Response(generate_stream(usb_camera),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+    return Response(
+        generate_stream(usb_camera),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
+
+# ─────────────────────────────────────────────────────────────
+# PI CAM STREAM
+# AI / Inspection Camera
+# ─────────────────────────────────────────────────────────────
 
 @app.route('/stream/pi')
-@app.route('/stream') # Legacy support
+
+# Legacy compatibility
+@app.route('/stream')
 def stream_pi():
-    return Response(generate_stream(pi_camera),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+    return Response(
+        generate_stream(pi_camera),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
+
+# ─────────────────────────────────────────────────────────────
+# AI DETECTIONS
+# ─────────────────────────────────────────────────────────────
 
 @app.route('/camera/detections')
 def detections():
+
     with ai_lock:
         return jsonify(latest_detections)
 
-# ── Control API ───────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# CAMERA STATUS
+# ─────────────────────────────────────────────────────────────
 
 @app.route('/camera/status')
 def status():
+
     return jsonify({
-        "usb": {"streaming": usb_camera.streaming, "res": usb_camera.resolution},
-        "pi": {"streaming": pi_camera.streaming, "res": pi_camera.resolution}
+
+        "usb": {
+            "streaming": usb_camera.streaming,
+            "resolution": usb_camera.resolution
+        },
+
+        "pi": {
+            "streaming": pi_camera.streaming,
+            "resolution": pi_camera.resolution
+        }
     })
 
-# ... Thermal routes remain unchanged ...
+# ─────────────────────────────────────────────────────────────
+# THERMAL STREAM
+# ─────────────────────────────────────────────────────────────
+
 @app.route('/thermal/stream')
 def thermal_stream():
+
     if not thermal_camera.streaming:
-        return jsonify({"error": "Thermal camera not started"}), 503
-    return Response(generate_thermal(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+        return jsonify({
+            "error": "Thermal camera not started"
+        }), 503
+
+    return Response(
+        generate_thermal(),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
 
 def generate_thermal():
+
     while True:
+
         frame = thermal_camera.get_frame()
-        if frame is None: continue
-        yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+        if frame is None:
+            time.sleep(0.05)
+            continue
+
+        yield (
+            b'--frame\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' +
+            frame +
+            b'\r\n'
+        )
+
+# ─────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    # Trigger both cameras on startup as requested
+
     print("[BOOT] Initializing Dual Camera System...")
-    usb_camera.start("640x480")
-    pi_camera.start("1280x720") # Pi Cam 3 usually higher res
-    
-    app.run(host='0.0.0.0', port=8080, threaded=True)
 
-# ── Run ───────────────────────────────────────────────────────────────
+    # Logitech FPV Camera
+    usb_camera.start("1280x720")
 
+    # Pi Cam 3 for AI
+    pi_camera.start("640x480")
+
+    print("[BOOT] Streams Ready:")
+    print("  USB FPV  → /stream/usb")
+    print("  PI CAM   → /stream/pi")
+    print("  THERMAL  → /thermal/stream")
+
+    app.run(
+        host='0.0.0.0',
+        port=8080,
+        threaded=True
+    )
