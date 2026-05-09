@@ -2,6 +2,7 @@
 
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
+from thermal_stream import generate_thermal_frames
 
 import threading
 import time
@@ -174,6 +175,20 @@ def stream_pi():
         generate_stream(pi_camera),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
+     
+# ─────────────────────────────────────────────────────────────
+# THERMAL CAM STREAM
+# MLX90640 Thermal Camera
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/thermal/stream')
+def thermal_stream():
+
+    return Response(
+        generate_thermal_frames(),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )    
+
 
 # ─────────────────────────────────────────────────────────────
 # AI DETECTIONS
