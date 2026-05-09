@@ -101,25 +101,23 @@ threading.Thread(
 # STREAM GENERATOR
 # ─────────────────────────────────────────────────────────────
 
-def generate_stream(camera_obj, fps_throttle=0.03):
-
+def generate_stream(camera_obj):
+    """High-performance generator for MJPEG streaming"""
+    last_frame = None
     while True:
-
+        # Fetch the pre-encoded JPEG bytes from the background thread
         frame = camera_obj.get_frame()
-
-        if frame is None:
-            time.sleep(0.01)
+        
+        if frame is None or frame == last_frame:
+            # Sleep very briefly to avoid pegging the CPU while waiting for HW
+            time.sleep(0.003) 
             continue
-
+            
+        last_frame = frame
         yield (
             b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' +
-            frame +
-            b'\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
         )
-
-        # Stream throttle
-        time.sleep(fps_throttle)
 
 # ─────────────────────────────────────────────────────────────
 # ROOT

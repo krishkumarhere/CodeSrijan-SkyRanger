@@ -17,13 +17,13 @@ RESOLUTIONS = {
 }
 
 class USBCamera:
-    """Handler for Logitech C270 USB Camera"""
+    """Handler for Logitech C270 USB Camera - Optimized for 25+ FPS"""
     def __init__(self):
         self.cam = None
         self.streaming = False
         self.resolution = "640x480"
         self._lock = threading.Lock()
-        self.last_frame = None
+        self.last_jpeg = None # Stores pre-encoded JPEG bytes
         self._stop_event = threading.Event()
         self._thread = None
 
@@ -34,11 +34,14 @@ class USBCamera:
             self.resolution = resolution
             w, h = RESOLUTIONS.get(resolution, (640, 480))
             try:
+                # Use V4L2 backend for Linux performance
                 self.cam = cv2.VideoCapture("/dev/video8", cv2.CAP_V4L2)
+                
+                # Set hardware MJPEG mode BEFORE resolution for best compatibility
+                self.cam.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
                 self.cam.set(cv2.CAP_PROP_FRAME_WIDTH, w)
                 self.cam.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
-                self.cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                self.cam.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                self.cam.set(cv2.CAP_PROP_BUFFERSIZE, 1) # Zero-latency buffer
                 
                 if not self.cam.isOpened():
                     raise Exception("USB Camera not detected")
@@ -46,17 +49,23 @@ class USBCamera:
                 self._thread = threading.Thread(target=self._capture_loop, daemon=True)
                 self._thread.start()
                 self.streaming = True
-                print(f"[USB_CAM] C270 Started at {resolution}")
+                print(f"[USB_CAM] Optimized C270 Started: {resolution} @ 30FPS Target")
             except Exception as e:
                 print(f"[USB_CAM] Failed: {e}")
                 self.streaming = False
 
     def _capture_loop(self):
+        """Background thread: Captures AND Encodes immediately"""
         while not self._stop_event.is_set():
             if self.cam:
                 ret, frame = self.cam.read()
-                if ret: self.last_frame = frame
-                else: time.sleep(0.01)
+                if ret:
+                    # Performance: Encode JPEG once in background thread
+                    # Quality 60 is the perfect balance for FPV streaming
+                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                    self.last_jpeg = buffer.tobytes()
+                else:
+                    time.sleep(0.001) # Short wait if frame drop
             else: break
 
     def stop(self):
@@ -66,14 +75,11 @@ class USBCamera:
             if self.cam: self.cam.release()
             self.cam = None
             self.streaming = False
-            self.last_frame = None
+            self.last_jpeg = None
 
     def get_frame(self):
-        if self.last_frame is None: return None
-        try:
-            _, buffer = cv2.imencode('.jpg', self.last_frame, [cv2.IMWRITE_JPEG_QUALITY, 35])
-            return buffer.tobytes()
-        except: return None
+        """Returns pre-encoded bytes - zero CPU cost for caller"""
+        return self.last_jpeg
 
 class PiCamera:
     """Handler for Pi Camera 3 (CSI)"""
