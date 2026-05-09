@@ -188,8 +188,28 @@ def detections():
         return jsonify(latest_detections)
 
 # ─────────────────────────────────────────────────────────────
-# CAMERA STATUS
+# CAMERA CONTROL
 # ─────────────────────────────────────────────────────────────
+
+@app.route('/camera/start', methods=['POST'])
+def camera_start():
+    pi_camera.start(pi_camera.resolution)
+    return jsonify({"ok": True, "streaming": pi_camera.streaming})
+
+@app.route('/camera/stop', methods=['POST'])
+def camera_stop():
+    pi_camera.stop()
+    return jsonify({"ok": True, "streaming": pi_camera.streaming})
+
+@app.route('/camera/resolution', methods=['POST'])
+def camera_resolution():
+    from flask import request
+    data = request.get_json() or {}
+    res = data.get('resolution', '640x480')
+    pi_camera.stop()
+    time.sleep(0.5)
+    pi_camera.start(res)
+    return jsonify({"ok": True, "resolution": pi_camera.resolution})
 
 @app.route('/camera/status')
 def status():
