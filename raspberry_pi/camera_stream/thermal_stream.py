@@ -26,70 +26,44 @@ print("[THERMAL] MLX90640 initialized")
 # THERMAL FRAME GENERATOR
 # =========================
 
-def generate_thermal_frames():
+# Global state for thermal telemetry
+thermal_stats = {
+    "max_temp": 0.0,
+    "min_temp": 0.0,
+    "avg_temp": 0.0,
+    "hotspots": 0
+}
 
+def generate_thermal_frames():
+    global thermal_stats
     while True:
         try:
             # Read thermal frame
             mlx.getFrame(frame_buffer)
-
-            # Convert to numpy array
             temp = np.array(frame_buffer)
+            
+            # Calculate real telemetry
+            thermal_stats["max_temp"] = float(np.max(temp))
+            thermal_stats["min_temp"] = float(np.min(temp))
+            thermal_stats["avg_temp"] = float(np.mean(temp))
+            # Count pixels significantly hotter than average (mock detection logic)
+            thermal_stats["hotspots"] = int(np.sum(temp > 38.0))
 
-            # Reshape to 24x32
-            temp = temp.reshape((24, 32))
-
-            # Normalize values
-            normalized = cv2.normalize(
-                temp,
-                None,
-                0,
-                255,
-                cv2.NORM_MINMAX
-            )
-
+            # Process for display
+            temp_reshaped = temp.reshape((24, 32))
+            normalized = cv2.normalize(temp_reshaped, None, 0, 255, cv2.NORM_MINMAX)
             normalized = np.uint8(normalized)
+            resized = cv2.resize(normalized, (640, 480), interpolation=cv2.INTER_CUBIC)
+            heatmap = cv2.applyColorMap(resized, cv2.COLORMAP_JET)
 
-            # Resize for frontend
-            resized = cv2.resize(
-                normalized,
-                (640, 480),
-                interpolation=cv2.INTER_CUBIC
-            )
-
-            # Apply heatmap
-            heatmap = cv2.applyColorMap(
-                resized,
-                cv2.COLORMAP_JET
-            )
-
-            # Encode JPEG
-            success, buffer = cv2.imencode(
-                '.jpg',
-                heatmap,
-                [cv2.IMWRITE_JPEG_QUALITY, 70]
-            )
-
-            if not success:
-                continue
-
-            frame = buffer.tobytes()
-
-            # MJPEG stream format
-            yield (
-                b'--frame\r\n'
-                b'Content-Type: image/jpeg\r\n\r\n' +
-                frame +
-                b'\r\n'
-            )
-
-            # Stability delay
-            time.sleep(0.05)
-
-        except RuntimeError:
-            print("[THERMAL] Frame read failed")
-            continue
+            success, buffer = cv2.imencode('.jpg', heatmap, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            if not success: continue
+            
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            
+            time.sleep(0.1) # 10 FPS is plenty for thermal
 
         except Exception as e:
             print(f"[THERMAL ERROR] {e}")
-            continue
+            time.sleep(1)

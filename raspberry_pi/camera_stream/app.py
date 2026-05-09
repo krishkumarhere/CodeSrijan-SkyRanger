@@ -182,6 +182,12 @@ def stream_pi():
 # MLX90640 Thermal Camera
 # ─────────────────────────────────────────────────────────────
 
+from thermal_stream import thermal_stats
+
+@app.route('/thermal/status')
+def thermal_api_status():
+    return jsonify(thermal_stats)
+
 @app.route('/thermal/stream')
 def thermal_stream():
 
