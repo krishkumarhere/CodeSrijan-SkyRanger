@@ -8,7 +8,7 @@ import threading
 import time
 
 from camera import usb_camera, pi_camera
-from thermal_cam import thermal_camera
+
 
 # ─────────────────────────────────────────────────────────────
 # OPTIONAL AI IMPORT
@@ -175,7 +175,7 @@ def stream_pi():
         generate_stream(pi_camera),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
-     
+
 # ─────────────────────────────────────────────────────────────
 # THERMAL CAM STREAM
 # MLX90640 Thermal Camera
