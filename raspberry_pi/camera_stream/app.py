@@ -129,20 +129,16 @@ def generate_stream(camera_obj):
 def index():
 
     return jsonify({
-
-        "status": "SkyRanger Dual Camera Server Active",
-
+        "status": "SkyRanger Mission Control Server Active",
         "cameras": {
-            "usb": usb_camera.streaming,
-            "pi": pi_camera.streaming
+            "pi": pi_camera.streaming,
+            "usb": "MANAGED_BY_RTSP_SERVER"
         },
-
         "streams": {
-            "usb_stream": "/stream/usb",
             "pi_stream": "/stream/pi",
-            "thermal_stream": "/thermal/stream"
+            "thermal_stream": "/thermal/stream",
+            "fpv_stream": "rtsp://0.0.0.0:8554/fpv"
         },
-
         "ai": {
             "detections": "/camera/detections"
         }

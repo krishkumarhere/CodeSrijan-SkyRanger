@@ -79,5 +79,4 @@ class PiCamera:
         except: return None
 
 # Global instances
-usb_camera = USBCamera()
 pi_camera = PiCamera()
