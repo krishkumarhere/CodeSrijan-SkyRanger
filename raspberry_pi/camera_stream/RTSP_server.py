@@ -34,9 +34,8 @@ class SkyRangerFactory(GstRtspServer.RTSPMediaFactory):
 
         pipeline = """
             v4l2src device=/dev/video8 do-timestamp=true !
-            video/x-raw,width=640,height=480 !
-            videorate !
-            video/x-raw,framerate=25/1 !
+            image/jpeg,width=640,height=480,framerate=25/1 !
+            jpegdec !
             videoconvert !
             x264enc tune=zerolatency speed-preset=ultrafast bitrate=1000 !
             h264parse !
@@ -56,13 +55,16 @@ class SkyRangerRTSPServer:
 
         self.server = GstRtspServer.RTSPServer()
 
+        # Bind to all interfaces
+        self.server.set_address("0.0.0.0")
+
         # RTSP Port
         self.server.set_service("8554")
 
-        # Create factory
+        # Create media factory
         factory = SkyRangerFactory()
 
-        # Mount stream
+        # Mount stream endpoint
         mounts = self.server.get_mount_points()
 
         mounts.add_factory("/fpv", factory)
