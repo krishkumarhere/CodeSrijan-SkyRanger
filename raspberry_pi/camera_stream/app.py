@@ -4,7 +4,7 @@ from flask_cors import CORS
 import threading
 import time
 
-from camera import usb_camera, pi_camera
+from camera import pi_camera
 from thermal_stream import generate_thermal_frames
 
 # ─────────────────────────────────────────────────────────────
@@ -148,18 +148,8 @@ def index():
         }
     })
 
-# ─────────────────────────────────────────────────────────────
-# USB FPV STREAM
-# Logitech C270
-# ─────────────────────────────────────────────────────────────
-
-@app.route('/stream/usb')
-def stream_usb():
-
-    return Response(
-        generate_stream(usb_camera),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
-    )
+# USB FPV STREAM IS NOW MANAGED BY RTSP_SERVER.PY
+# This avoids V4L2 device lock contention on /dev/video8
 
 # ─────────────────────────────────────────────────────────────
 # PI CAM STREAM
@@ -254,16 +244,11 @@ def camera_resolution():
 def status():
 
     return jsonify({
-
-        "usb": {
-            "streaming": usb_camera.streaming,
-            "resolution": usb_camera.resolution
-        },
-
         "pi": {
             "streaming": pi_camera.streaming,
             "resolution": pi_camera.resolution
-        }
+        },
+        "usb": "DECOUPLED_TO_RTSP"
     })
 
 # ─────────────────────────────────────────────────────────────
@@ -272,18 +257,15 @@ def status():
 
 if __name__ == '__main__':
 
-    print("[BOOT] Initializing Dual Camera System...")
-
-    # Logitech FPV Camera
-    usb_camera.start("1280x720")
-
-    # Pi Cam 3 for AI
+    # Pi Cam 3 for AI & Inspection
+    # USB webcam (Logitech) is EXCLUSIVELY owned by RTSP_server.py
+    # to avoid hardware lock contention on V4L2 device /dev/video8
     pi_camera.start("640x480")
 
-    print("[BOOT] Streams Ready:")
-    print("  USB FPV  → /stream/usb")
+    print("[BOOT] Primary Streams Ready:")
     print("  PI CAM   → /stream/pi")
     print("  THERMAL  → /thermal/stream")
+    print("  USB FPV  → RTSP_PORT:8554 (Handled by RTSP_server.py)")
 
     app.run(
         host='0.0.0.0',
