@@ -29,13 +29,11 @@ class SkyRangerFactory(GstRtspServer.RTSPMediaFactory):
     def do_create_element(self, url):
 
         pipeline = """
-            v4l2src device=/dev/video8 !
-            video/x-raw,width=640,height=480 !
-            videorate !
-            video/x-raw,framerate=25/1 !
+            v4l2src device=/dev/video8 do-timestamp=true !
+            video/x-raw,width=640,height=480,framerate=30/1 !
             videoconvert !
-            x264enc tune=zerolatency speed-preset=ultrafast bitrate=1000 key-int-max=25 !
-            video/x-h264,profile=baseline !
+            queue !
+            x264enc tune=zerolatency speed-preset=ultrafast bitrate=1000 !
             h264parse !
             rtph264pay config-interval=1 name=pay0 pt=96
         """
