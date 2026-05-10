@@ -54,8 +54,8 @@ export default function AboutPage() {
                   <div className="text-sm text-gray-500 font-medium mt-1">{member.role}</div>
                 </div>
                 <div className="flex gap-3">
-                  <button className="p-2.5 bg-white/5 rounded-xl text-gray-500 hover:text-white hover:bg-white/10 transition-all"><Github size={18} /></button>
-                  <button className="p-2.5 bg-white/5 rounded-xl text-gray-500 hover:text-blue-400 hover:bg-white/10 transition-all"><Linkedin size={18} /></button>
+                  <button className="p-2.5 bg-white/5 rounded-xl text-gray-500 hover:text-white hover:bg-white/10 transition-all"><ExternalLink size={18} /></button>
+                  <button className="p-2.5 bg-white/5 rounded-xl text-gray-500 hover:text-blue-400 hover:bg-white/10 transition-all"><ExternalLink size={18} /></button>
                 </div>
               </div>
             ))}
@@ -84,7 +84,7 @@ export default function AboutPage() {
             <h3 className="text-xl font-bold text-white">Stack Specs</h3>
           </div>
           <div className="flex flex-wrap gap-2">
-            {["React.js", "FastAPI", "Python 3.13", "YOLOv8", "OpenCV", "PyTorch", "MAVLink", "WebSockets", "Tailwind"].map(t => (
+            {["React.js", "FastAPI", "Python 3.13", "YOLOv8", "OpenCV", "PyTorch", "MAVLink", "WebSockets", "Tailwind", "WebRTC",].map(t => (
               <span key={t} className="px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-[10px] text-gray-400 font-mono tracking-widest uppercase">
                 {t}
               </span>

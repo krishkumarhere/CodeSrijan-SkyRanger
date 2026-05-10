@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
-import { 
-  ArrowUpRight, Wind, BatteryCharging, Zap, Satellite, MapPin, 
-  Shield, Activity, Crosshair, Navigation, Target, Info, AlertCircle, Video, Radio 
+import {
+  ArrowUpRight, Wind, BatteryCharging, Zap, Satellite, MapPin,
+  Shield, Activity, Crosshair, Navigation, Target, Info, AlertCircle, Video, Radio
 } from "lucide-react"
 import SensorPage from "./SensorPage"
 import CameraPage from "./CameraPage"
@@ -54,7 +54,7 @@ function MetricTile({ label, value, unit, warn = false, icon: Icon, color = "blu
 
 function TelemetryPanel({ data, connected }) {
   const batteryLow = data.battery_remaining !== null && data.battery_remaining < 30
-  
+
   return (
     <div className="h-full flex flex-col bg-[#070b14]/40 border border-blue-500/10 rounded-[2rem] overflow-hidden backdrop-blur-xl relative group">
       {/* HUD Header */}
@@ -93,11 +93,11 @@ function TelemetryPanel({ data, connected }) {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <MetricTile label="Altitude" value={data.alt} unit="m" icon={ArrowUpRight} />
-          <MetricTile label="Air Speed" value={data.vx} unit="m/s" icon={Wind} color="amber" />
+          <MetricTile label="Air Speed" value={data.speed} unit="m/s" icon={Wind} color="amber" />
           <MetricTile label="Battery" value={data.battery_remaining} unit="%" warn={batteryLow} icon={BatteryCharging} color="green" />
           <MetricTile label="Voltage" value={data.battery_voltage} unit="V" warn={batteryLow} icon={Zap} color="green" />
           <MetricTile label="Satellites" value={data.satellites} icon={Satellite} />
-          <MetricTile label="GPS Fix" value={data.gps_fix} icon={MapPin} />
+          <MetricTile label="GPS Fix" value={data.gps_fix ? "3D LOCK" : "NO FIX"} warn={!data.gps_fix} icon={MapPin} />
         </div>
 
         {/* Attitude Section */}
@@ -213,13 +213,13 @@ export default function App() {
     const connectWS = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
-      
+
       ws = new WebSocket(wsUrl);
       ws.onopen = () => {
         setConnected(true);
         setReconnecting(false);
         attempt = 0;
-        setLogs(p => [...p, { time: new Date().toLocaleTimeString([], {hour12: false}), msg: "MAVLINK_STREAM_ESTABLISHED" }]);
+        setLogs(p => [...p, { time: new Date().toLocaleTimeString([], { hour12: false }), msg: "MAVLINK_STREAM_ESTABLISHED" }]);
       };
       ws.onmessage = (e) => setTelemetry(JSON.parse(e.data));
       ws.onclose = () => {
@@ -256,17 +256,17 @@ export default function App() {
   }, [telemetry.lat, telemetry.lon])
 
   return (
-    <ResponsiveShell 
-      page={page} 
-      setPage={setPage} 
-      connected={connected} 
-      reconnecting={reconnecting} 
+    <ResponsiveShell
+      page={page}
+      setPage={setPage}
+      connected={connected}
+      reconnecting={reconnecting}
       telemetry={telemetry}
     >
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {page === "DASHBOARD" && (
           <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 lg:p-8 min-h-0 overflow-y-auto lg:overflow-hidden custom-scrollbar bg-cyber-grid">
-            
+
             {/* Sidebar Telemetry */}
             <div className="w-full lg:w-[400px] xl:w-[440px] flex-shrink-0 lg:h-full flex flex-col gap-6">
               <TelemetryPanel data={telemetry} connected={connected} />
@@ -274,7 +274,7 @@ export default function App() {
 
             {/* Main Camera Preview - Replaces MapPanel */}
             <div className="flex-1 min-h-[500px] lg:min-h-0 relative rounded-[2.5rem] overflow-hidden border border-blue-500/20 shadow-2xl bg-black group/camera">
-              
+
               {/* Tactical Feed Container */}
               <div className="w-full h-full bg-[#04070d] relative overflow-hidden">
                 {/* HUD Corner Brackets */}
@@ -292,14 +292,34 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RTSP FPV Stream */}
-                <div className="absolute inset-0 z-[10]">
-                  <iframe
-                    src="http://10.39.201.80:1984/stream.html?src=fpv"
-                    className="w-full h-full border-0 bg-black"
-                    allow="autoplay; fullscreen"
-                    allowFullScreen
-                  />
+                {/* Tactical FPV Placeholder (Restored) */}
+                <div className="absolute inset-0 z-[10] flex items-center justify-center bg-[#05080f]">
+                  {/* Animated Grid Background */}
+                  <div className="absolute inset-0 cyber-grid opacity-[0.05] pointer-events-none" />
+
+                  {/* Tactical "No Signal" HUD */}
+                  <div className="relative flex flex-col items-center gap-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 rounded-full border border-blue-500/10 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full border border-blue-500/20 flex items-center justify-center animate-[spin_8s_linear_infinite]">
+                          <div className="w-0.5 h-6 bg-gradient-to-t from-blue-500/40 to-transparent rounded-full" />
+                        </div>
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Video className="text-blue-500/20" size={20} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
+                        <span className="font-mono text-[10px] font-black text-white uppercase tracking-[0.3em]">SIGNAL_LOST</span>
+                      </div>
+                      <span className="font-mono text-[8px] text-blue-500/30 uppercase tracking-[0.2em] font-bold">Awaiting Tactical Downlink...</span>
+                    </div>
+                  </div>
+
+                  {/* Noise/Grain Overlay */}
+                  <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
                 </div>
 
                 {/* Stream Info Overlays */}
@@ -359,7 +379,7 @@ export default function App() {
         {page === "SYSTEM" && <SystemPage />}
         {page === "MISSION" && <MissionPage telemetry={telemetry} connected={connected} />}
         {page === "ABOUT" && <AboutPage />}
-        
+
         <FlightLog logs={logs} />
       </div>
     </ResponsiveShell>
