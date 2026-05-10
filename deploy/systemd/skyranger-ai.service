@@ -1,16 +1,22 @@
 [Unit]
 Description=SkyRanger AI Detection Server
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=krish
+
 WorkingDirectory=/home/krish/Desktop/CodeSrijan-SkyRanger/ai_models/server
-Environment="PATH=/home/krish/Desktop/CodeSrijan-SkyRanger/venv/bin"
+
+Environment="PATH=/home/krish/Desktop/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH=/home/krish/Desktop/CodeSrijan-SkyRanger"
-ExecStart=/home/krish/Desktop/CodeSrijan-SkyRanger/venv/bin/uvicorn detection_server:app --host 127.0.0.1 --port 8001
+
+ExecStart=/home/krish/Desktop/venv/bin/uvicorn detection_server:app --host 127.0.0.1 --port 8001
+
 Restart=always
 RestartSec=5
+
 StandardOutput=append:/var/log/skyranger/ai.log
 StandardError=append:/var/log/skyranger/ai.err
 

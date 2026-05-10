@@ -1,0 +1,21 @@
+[Unit]
+Description=go2rtc Streaming Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=krish
+
+WorkingDirectory=/home/krish/Desktop
+
+ExecStart=/home/krish/Desktop/go2rtc
+
+Restart=always
+RestartSec=5
+
+StandardOutput=append:/var/log/skyranger/go2rtc.log
+StandardError=append:/var/log/skyranger/go2rtc.err
+
+[Install]
+WantedBy=multi-user.target

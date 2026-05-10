@@ -1,5 +1,5 @@
 [Unit]
-Description=SkyRanger Flask Camera Server
+Description=SkyRanger RTSP Webcam Server
 After=network-online.target
 Wants=network-online.target
 
@@ -11,13 +11,13 @@ WorkingDirectory=/home/krish/Desktop/CodeSrijan-SkyRanger/raspberry_pi/camera_st
 
 Environment="PATH=/home/krish/Desktop/venv/bin:/usr/local/bin:/usr/bin:/bin"
 
-ExecStart=/home/krish/Desktop/venv/bin/python app.py
+ExecStart=/home/krish/Desktop/venv/bin/python RTSP_server.py
 
 Restart=always
 RestartSec=5
 
-StandardOutput=append:/var/log/skyranger/camera.log
-StandardError=append:/var/log/skyranger/camera.err
+StandardOutput=append:/var/log/skyranger/rtsp.log
+StandardError=append:/var/log/skyranger/rtsp.err
 
 [Install]
 WantedBy=multi-user.target

@@ -1,17 +1,22 @@
 [Unit]
 Description=SkyRanger FastAPI Backend
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=krish
+
 WorkingDirectory=/home/krish/Desktop/CodeSrijan-SkyRanger/backend
-Environment="PATH=/home/krish/Desktop/CodeSrijan-SkyRanger/venv/bin"
+
+Environment="PATH=/home/krish/Desktop/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH=/home/krish/Desktop/CodeSrijan-SkyRanger"
-ExecStart=/home/krish/Desktop/CodeSrijan-SkyRanger/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --log-level info
+
+ExecStart=/home/krish/Desktop/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --log-level info
+
 Restart=always
 RestartSec=5
+
 StandardOutput=append:/var/log/skyranger/backend.log
 StandardError=append:/var/log/skyranger/backend.err
 
