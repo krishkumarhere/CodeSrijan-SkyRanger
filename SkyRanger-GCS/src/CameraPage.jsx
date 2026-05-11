@@ -136,39 +136,56 @@ export default function CameraPage({ telemetry }) {
     }
   }
 
-  // 1. Initial state sync: Fetch the current AI state from backend on page load
+  const [serviceOnline, setServiceOnline] = useState(true) // AI Service Health
+  const [isToggling, setIsToggling] = useState(false) // Toggle lock
+
+  // 1. Health Monitoring: Periodically check if the AI backend is alive
   useEffect(() => {
-    async function syncAiState() {
+    const checkHealth = async () => {
       try {
         const res = await fetch("/api/ai/state")
-        const data = await res.json()
-        if (data && typeof data.infrastructure_mode === "boolean") {
-          setInfrastructureMode(data.infrastructure_mode)
+        if (res.ok) {
+          const data = await res.json()
+          setServiceOnline(true)
+          if (typeof data.infrastructure_mode === "boolean" && !isToggling) {
+            setInfrastructureMode(data.infrastructure_mode)
+          }
+        } else {
+          setServiceOnline(false)
         }
       } catch (e) {
-        console.error("Failed to sync AI state:", e)
+        setServiceOnline(false)
       }
     }
-    syncAiState()
-  }, [])
+    const interval = setInterval(checkHealth, 3000)
+    checkHealth() // Initial check
+    return () => clearInterval(interval)
+  }, [isToggling])
 
-  // 2. Toggle handler: Call backend to enable/disable infrastructure mode
+  // 2. Verified Toggle handler: Call backend and wait for success confirmation
   const toggleInfrastructureMode = async () => {
+    if (!serviceOnline || isToggling) return; // Prevent action if offline or busy
+
     const newState = !infrastructureMode
     const endpoint = newState ? "/api/ai/infrastructure/enable" : "/api/ai/infrastructure/disable"
     
     try {
-      setLoading(true)
+      setIsToggling(true)
       const res = await fetch(endpoint, { method: "POST" })
       if (res.ok) {
-        setInfrastructureMode(newState)
+        const result = await res.json()
+        // Verify the backend actually updated the state
+        if (result.status === "success" || result.infrastructure_mode === newState) {
+          setInfrastructureMode(newState)
+        }
       } else {
-        console.error("Failed to toggle infrastructure mode:", await res.text())
+        throw new Error("Server rejected toggle")
       }
     } catch (e) {
-      console.error("Error toggling infrastructure mode:", e)
+      console.error("AI Control Failure:", e)
+      setServiceOnline(false) // Mark as offline on network failure
     } finally {
-      setLoading(false)
+      setIsToggling(false)
     }
   }
 
@@ -501,20 +518,31 @@ export default function CameraPage({ telemetry }) {
             <div className="font-mono text-[9px] tracking-[0.25em] text-cyan-500/60 uppercase font-black mb-4 px-2">AI Engine</div>
             <button
               onClick={toggleInfrastructureMode}
-              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${infrastructureMode ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+              disabled={!serviceOnline || isToggling}
+              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : infrastructureMode ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
             >
               <div className="flex flex-col items-start gap-1">
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest">Infrastructure Mode</span>
-                <span className="font-mono text-[8px] opacity-60 uppercase">{infrastructureMode ? "INSPECTION_PIPELINE_READY" : "SYSTEM_STANDBY"}</span>
+                <span className="font-mono text-[10px] font-black uppercase tracking-widest">
+                  {!serviceOnline ? "AI Server Offline" : "Infrastructure Mode"}
+                </span>
+                <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
+                  {isToggling ? "VERIFYING_MODE..." : !serviceOnline ? "CONNECTION_LOST" : infrastructureMode ? "INSPECTION_PIPELINE_READY" : "SYSTEM_STANDBY"}
+                </span>
               </div>
-              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${infrastructureMode ? "bg-cyan-500" : "bg-white/10"}`}>
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${infrastructureMode ? "left-6" : "left-1"}`} />
+              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : infrastructureMode ? "bg-cyan-500" : "bg-white/10"}`}>
+                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${infrastructureMode ? "left-6" : "left-1"} ${isToggling ? "animate-pulse" : ""}`} />
               </div>
             </button>
-            {infrastructureMode && (
+            {infrastructureMode && serviceOnline && (
               <div className="mt-3 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
                 <AlertCircle size={12} className="text-amber-500" />
                 <span className="font-mono text-[8px] text-amber-500 uppercase font-bold tracking-widest">EDGE_OBJECT_DETECTION_DISABLED</span>
+              </div>
+            )}
+            {!serviceOnline && (
+              <div className="mt-3 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-pulse">
+                <Info size={12} className="text-red-500" />
+                <span className="font-mono text-[8px] text-red-500 uppercase font-bold tracking-widest">Verify AI server on laptop</span>
               </div>
             )}
           </section>

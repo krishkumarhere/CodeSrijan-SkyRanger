@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import {
   ArrowUpRight, Wind, BatteryCharging, Zap, Satellite, MapPin,
-  Shield, Activity, Crosshair, Navigation, Target, Info, AlertCircle, Video, Radio
+  Shield, Activity, Crosshair, Navigation, Target, Info, AlertCircle, Video, Radio, Camera
 } from "lucide-react"
 import SensorPage from "./SensorPage"
 import CameraPage from "./CameraPage"
@@ -173,6 +173,10 @@ export default function App() {
   const [telemetry, setTelemetry] = useState(emptyTelemetry)
   const [connected, setConnected] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
+  const [page, setPage] = useState("DASHBOARD")
+  const [logs, setLogs] = useState([
+    { time: "00:00:00", msg: "CORE_SYSTEM_INITIALIZED" },
+  ])
   const [flightPath, setFlightPath] = useState([
     [24.647287, 77.319182],
     [24.647350, 77.319250],
@@ -180,10 +184,43 @@ export default function App() {
     [24.647550, 77.319350],
     [24.647600, 77.319300],
   ])
-  const [page, setPage] = useState("DASHBOARD")
-  const [logs, setLogs] = useState([
-    { time: "00:00:00", msg: "CORE_SYSTEM_INITIALIZED" },
-  ])
+
+  // --- AI Detection Logic ---
+  const [aiData, setAiData] = useState({
+    pipeline: "standby",
+    timestamp: null,
+    fps: 0,
+    state: "CLEAR",
+    snapshot_event: false,
+    detections: []
+  })
+  const [showSnapshotToast, setShowSnapshotToast] = useState(false)
+
+  // 1. Polling Logic: Fetch /api/ai/latest every 1000ms
+  useEffect(() => {
+    const pollAI = async () => {
+      try {
+        const res = await fetch("/api/ai/latest")
+        if (!res.ok) throw new Error("AI Backend Offline")
+        const data = await res.json()
+
+        // 2. AI State Updates: Update local state with latest detection data
+        setAiData(data)
+
+        // 3. Snapshot Notification Handling: Trigger toast if snapshot_event is true
+        if (data.snapshot_event) {
+          setShowSnapshotToast(true)
+          setTimeout(() => setShowSnapshotToast(false), 3000) // Auto-hide after 3s
+        }
+      } catch (e) {
+        console.error("AI Poll Error:", e)
+        setAiData(prev => ({ ...prev, state: "OFFLINE", fps: 0 }))
+      }
+    }
+
+    const interval = setInterval(pollAI, 1000)
+    return () => clearInterval(interval) // 6. Clean up interval on unmount
+  }, [])
 
   useEffect(() => {
     let failures = 0;
@@ -264,15 +301,71 @@ export default function App() {
       telemetry={telemetry}
     >
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        {/* Snapshot Notification Toast */}
+        {showSnapshotToast && (
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-8 duration-500">
+            <div className="bg-cyan-500 border border-white/20 px-6 py-3 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-3">
+              <Camera size={18} className="text-white animate-pulse" />
+              <span className="font-mono text-xs font-black text-white uppercase tracking-widest">Inspection evidence captured</span>
+            </div>
+          </div>
+        )}
+
         {page === "DASHBOARD" && (
           <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 lg:p-8 min-h-0 overflow-y-auto lg:overflow-hidden custom-scrollbar bg-cyber-grid">
 
             {/* Sidebar Telemetry */}
             <div className="w-full lg:w-[400px] xl:w-[440px] flex-shrink-0 lg:h-full flex flex-col gap-6">
               <TelemetryPanel data={telemetry} connected={connected} />
+
+              {/* AI Detection Summary Card */}
+              <div className="bg-[#070b14]/40 border border-cyan-500/10 rounded-[2rem] p-6 backdrop-blur-xl relative overflow-hidden group">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                      <Target size={16} className="text-cyan-400" />
+                    </div>
+                    <span className="font-mono text-[9px] text-cyan-500/60 uppercase font-black tracking-widest">Live AI Intelligence</span>
+                  </div>
+                  <div className="bg-black/40 px-2 py-0.5 rounded-md font-mono text-[8px] text-gray-500 font-bold uppercase tracking-widest">
+                    {aiData?.fps || 0} FPS
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-4 py-3 bg-white/5 border border-white/5 rounded-2xl">
+                    <span className="font-mono text-[9px] text-gray-500 uppercase font-bold tracking-widest">AI Status</span>
+                    <span className={`font-mono text-[10px] font-black uppercase tracking-widest ${aiData?.state === "DETECTION" ? "text-orange-500 animate-pulse" : "text-green-500"}`}>
+                      {aiData?.state || "CLEAR"}
+                    </span>
+                  </div>
+
+                  {(aiData?.detections?.length || 0) > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {aiData.detections.map((det, i) => (
+                        <div key={i} className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-xl flex items-center gap-2">
+                          <span className="font-mono text-[9px] text-cyan-400 font-black uppercase tracking-widest">{det.label}</span>
+                          <span className="font-mono text-[8px] text-cyan-500/40 font-bold">{(det.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-2">
+                      <span className="font-mono text-[8px] text-gray-600 uppercase font-bold tracking-widest italic">No infrastructure defects detected</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex items-center justify-between">
+                    <span className="font-mono text-[8px] text-gray-700 uppercase font-bold tracking-widest">Last Update</span>
+                    <span className="font-mono text-[8px] text-gray-500 font-bold">
+                      {aiData?.timestamp ? new Date(aiData.timestamp).toLocaleTimeString([], { hour12: false }) : "---"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Main Camera Preview - Replaces MapPanel */}
+            {/* Main Camera Preview */}
             <div className="flex-1 min-h-[500px] lg:min-h-0 relative rounded-[2.5rem] overflow-hidden border border-blue-500/20 shadow-2xl bg-black group/camera">
 
               {/* Tactical Feed Container */}
@@ -294,13 +387,13 @@ export default function App() {
 
                 {/* Tactical FPV Stream (go2rtc) */}
                 <div className="absolute inset-0 z-[10] flex items-center justify-center bg-[#05080f]">
-                  <iframe 
+                  <iframe
                     src="/fpv/stream.html?src=fpv"
                     className="w-full h-full border-none"
                     allow="autoplay; fullscreen"
                     title="FPV Stream"
                   />
-                  
+
                   {/* Tactical Overlays (Scanlines/Noise) */}
                   <div className="absolute inset-0 pointer-events-none z-[20] opacity-[0.03] scanlines" />
                   <div className="absolute inset-0 pointer-events-none z-[20] opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
@@ -321,10 +414,10 @@ export default function App() {
                   <div className="flex flex-col items-end gap-2">
                     <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-3">
                       <Activity size={14} className="text-blue-500" />
-                      <span className="font-mono text-[10px] font-black tracking-widest text-white uppercase">BANDWIDTH_OPTIMIZED</span>
+                      <span className="font-mono text-[10px] font-black tracking-widest text-white uppercase">AI_ENGINE: {(aiData?.pipeline || "standby").toUpperCase()}</span>
                     </div>
-                    <div className="bg-black/60 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm flex items-center gap-2">
-                      <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">640x480 @ 30FPS</span>
+                    <div className={`bg-black/60 border border-white/5 px-3 py-1.5 rounded-xl backdrop-blur-sm flex items-center gap-2 transition-colors ${aiData?.state === "DETECTION" ? "text-orange-400" : "text-gray-400"}`}>
+                      <span className="font-mono text-[9px] uppercase tracking-widest">THREAT_LEVEL: {aiData?.state || "CLEAR"}</span>
                     </div>
                   </div>
                 </div>
@@ -334,8 +427,10 @@ export default function App() {
                   <div className="flex flex-col gap-2">
                     <div className="bg-black/60 border border-white/5 px-4 py-2 rounded-xl backdrop-blur-sm">
                       <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">AI_OVERLAY_READY</span>
+                        <div className={`w-1.5 h-1.5 rounded-full ${aiData?.state === "OFFLINE" ? "bg-red-500" : "bg-green-500"}`} />
+                        <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">
+                          {aiData?.state === "OFFLINE" ? "AI_LINK_LOST" : "AI_INFERENCE_READY"}
+                        </span>
                       </div>
                     </div>
                   </div>
