@@ -1,0 +1,12 @@
+# SkyRanger Cloudflare Tunnel Config
+# Deploy to: ~/.cloudflared/config.yml on the Raspberry Pi
+#
+# Find your tunnel ID:   cloudflared tunnel list
+# Find credentials file: ls ~/.cloudflared/*.json
+
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /home/krish/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  # nginx handles ALL routing — one rule is all we need
+  - service: http://127.0.0.1:80

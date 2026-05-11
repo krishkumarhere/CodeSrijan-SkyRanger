@@ -1,35 +1,48 @@
 # ai_core/integrations/camera_client.py
 
 import cv2
+import numpy as np
+import requests
 
-STREAM_URL = "http://127.0.0.1:8080/stream"
+
+FRAME_URL = "https://demo.skyrangerai.xyz/camera/frame"
 
 
 class CameraClient:
+
     def __init__(self):
 
-        print("[CAMERA] Connecting to stream...")
-
-        self.cap = cv2.VideoCapture(
-            STREAM_URL,
-            cv2.CAP_FFMPEG
-        )
-
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-        print("[CAMERA] Opened:", self.cap.isOpened())
+        print("[CAMERA] Connecting to frame endpoint...")
 
     def get_frame(self):
 
-        if not self.cap.isOpened():
+        try:
+
+            response = requests.get(
+                FRAME_URL,
+                timeout=5
+            )
+
+            if response.status_code != 200:
+                return None
+
+            img_array = np.frombuffer(
+                response.content,
+                dtype=np.uint8
+            )
+
+            frame = cv2.imdecode(
+                img_array,
+                cv2.IMREAD_COLOR
+            )
+
+            return frame
+
+        except Exception as e:
+
+            print(f"[CAMERA] Error: {e}")
+
             return None
-
-        ret, frame = self.cap.read()
-
-        if not ret:
-            return None
-
-        return frame
 
     def release(self):
-        self.cap.release()
+        pass
