@@ -234,4 +234,4 @@ def upload_mission(waypoints: list):
     print("[MISSION] Upload successful")
     fetch_mission() # Sync back
 
-    return {"status": "success", "waypoints": count}
+    return {"status": "success", "waypoints": count}
