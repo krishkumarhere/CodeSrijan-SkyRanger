@@ -4,7 +4,7 @@ import { Menu, X, Activity, Camera, Cpu, Compass, Info, LayoutDashboard, Zap, Sh
 const NAV_ITEMS = [
   { id: "DASHBOARD", label: "DASHBOARD", icon: LayoutDashboard },
   { id: "SENSORS", label: "SENSORS", icon: Activity },
-  { id: "CAMERA", label: "CAMERA", icon: Camera },
+  { id: "CAMERA", label: "AI INSIGHTS", icon: Camera },
   { id: "SYSTEM", label: "SYSTEM", icon: Cpu },
   { id: "MISSION", label: "MISSION", icon: Compass },
   { id: "ABOUT", label: "ABOUT", icon: Info },
@@ -20,7 +20,7 @@ export function TopNavbar({ onMenuClick, connected, reconnecting, telemetry }) {
   return (
     <nav className="flex items-center justify-between px-4 py-2 border-b border-blue-500/10 bg-[#070b14]/95 backdrop-blur-xl z-50 h-14">
       <div className="flex items-center gap-4">
-        <button 
+        <button
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded-lg hover:bg-blue-500/10 text-blue-400/70 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/20"
         >
@@ -91,11 +91,10 @@ export function DesktopSidebar({ page, setPage }) {
             <button
               key={id}
               onClick={() => setPage(id)}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300 group ${
-                isActive 
-                  ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[inset_0_0_15px_rgba(59,130,246,0.1)]" 
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300 group ${isActive
+                  ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[inset_0_0_15px_rgba(59,130,246,0.1)]"
                   : "border-transparent text-gray-500 hover:bg-white/[0.03] hover:text-gray-300"
-              }`}
+                }`}
             >
               <div className={`p-1.5 rounded-lg transition-colors ${isActive ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]" : "bg-transparent text-gray-600 group-hover:text-gray-400"}`}>
                 <Icon size={16} />
@@ -128,7 +127,7 @@ export function DesktopSidebar({ page, setPage }) {
 export function MobileSidebar({ page, setPage, onClose, isOpen }) {
   return (
     <>
-      <div 
+      <div
         className={`fixed inset-0 bg-black/80 backdrop-blur-md z-[60] lg:hidden transition-opacity duration-500 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
       />
@@ -149,11 +148,10 @@ export function MobileSidebar({ page, setPage, onClose, isOpen }) {
             <button
               key={id}
               onClick={() => { setPage(id); onClose(); }}
-              className={`flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all ${
-                page === id 
-                  ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[0_0_30px_rgba(59,130,246,0.1)]" 
+              className={`flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all ${page === id
+                  ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[0_0_30px_rgba(59,130,246,0.1)]"
                   : "border-transparent text-gray-500 hover:bg-white/5"
-              }`}
+                }`}
             >
               <Icon size={20} className={page === id ? "text-blue-400" : "text-gray-600"} />
               <span className="font-mono text-[12px] font-bold tracking-[0.2em] uppercase">{label}</span>
@@ -171,7 +169,7 @@ export function ResponsiveShell({ children, page, setPage, connected, reconnecti
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#020617] text-gray-200 selection:bg-blue-500/30">
       <div className="fixed inset-0 cyber-grid pointer-events-none opacity-[0.03]" />
-      <TopNavbar 
+      <TopNavbar
         onMenuClick={() => setMobileMenuOpen(true)}
         connected={connected}
         reconnecting={reconnecting}
@@ -179,10 +177,10 @@ export function ResponsiveShell({ children, page, setPage, connected, reconnecti
       />
       <div className="flex flex-1 overflow-hidden relative">
         <DesktopSidebar page={page} setPage={setPage} />
-        <MobileSidebar 
-          page={page} 
-          setPage={setPage} 
-          onClose={() => setMobileMenuOpen(false)} 
+        <MobileSidebar
+          page={page}
+          setPage={setPage}
+          onClose={() => setMobileMenuOpen(false)}
           isOpen={mobileMenuOpen}
         />
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-0">

@@ -292,34 +292,18 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Tactical FPV Placeholder (Restored) */}
+                {/* Tactical FPV Stream (go2rtc) */}
                 <div className="absolute inset-0 z-[10] flex items-center justify-center bg-[#05080f]">
-                  {/* Animated Grid Background */}
-                  <div className="absolute inset-0 cyber-grid opacity-[0.05] pointer-events-none" />
-
-                  {/* Tactical "No Signal" HUD */}
-                  <div className="relative flex flex-col items-center gap-4">
-                    <div className="relative">
-                      <div className="w-16 h-16 rounded-full border border-blue-500/10 flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-full border border-blue-500/20 flex items-center justify-center animate-[spin_8s_linear_infinite]">
-                          <div className="w-0.5 h-6 bg-gradient-to-t from-blue-500/40 to-transparent rounded-full" />
-                        </div>
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Video className="text-blue-500/20" size={20} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
-                        <span className="font-mono text-[10px] font-black text-white uppercase tracking-[0.3em]">SIGNAL_LOST</span>
-                      </div>
-                      <span className="font-mono text-[8px] text-blue-500/30 uppercase tracking-[0.2em] font-bold">Awaiting Tactical Downlink...</span>
-                    </div>
-                  </div>
-
-                  {/* Noise/Grain Overlay */}
-                  <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
+                  <iframe 
+                    src="/fpv/stream.html?src=fpv"
+                    className="w-full h-full border-none"
+                    allow="autoplay; fullscreen"
+                    title="FPV Stream"
+                  />
+                  
+                  {/* Tactical Overlays (Scanlines/Noise) */}
+                  <div className="absolute inset-0 pointer-events-none z-[20] opacity-[0.03] scanlines" />
+                  <div className="absolute inset-0 pointer-events-none z-[20] opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
                 </div>
 
                 {/* Stream Info Overlays */}
