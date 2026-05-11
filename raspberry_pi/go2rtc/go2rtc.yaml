@@ -1,0 +1,12 @@
+streams:
+  fpv:
+    - ffmpeg:/dev/video8#input_format=mjpeg#video_size=640x480#framerate=30
+
+api:
+  listen: ":1984"
+
+rtsp:
+  listen: ":8555"
+
+webrtc:
+  listen: ":8556"

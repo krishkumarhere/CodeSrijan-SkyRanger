@@ -17,8 +17,8 @@ ExecStart=/home/krish/Desktop/venv/bin/uvicorn main:app --host 127.0.0.1 --port 
 Restart=always
 RestartSec=5
 
-StandardOutput=append:/var/log/skyranger/backend.log
-StandardError=append:/var/log/skyranger/backend.err
+StandardOutput=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/backend.log
+StandardError=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/backend.err
 
 [Install]
 WantedBy=multi-user.target

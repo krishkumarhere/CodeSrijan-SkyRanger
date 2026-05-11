@@ -1,20 +1,19 @@
 [Unit]
-Description=SkyRanger Cloudflare Tunnel
+Description=Cloudflare Tunnel
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=krish
-WorkingDirectory=/home/krish
 
 ExecStart=/usr/local/bin/cloudflared tunnel run skyranger
 
 Restart=always
 RestartSec=5
 
-StandardOutput=append:/home/krish/SkyRanger/logs/cloudflared.log
-StandardError=append:/home/krish/SkyRanger/logs/cloudflared-error.log
+StandardOutput=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/cloudflared.log
+StandardError=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/cloudflared.err
 
 [Install]
 WantedBy=multi-user.target
