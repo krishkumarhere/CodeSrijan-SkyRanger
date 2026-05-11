@@ -1,5 +1,5 @@
 [Unit]
-Description=go2rtc Streaming Server
+Description=go2rtc WebRTC Server
 After=network-online.target
 Wants=network-online.target
 
@@ -7,15 +7,16 @@ Wants=network-online.target
 Type=simple
 User=krish
 
-WorkingDirectory=/home/krish/Desktop
+WorkingDirectory=/home/krish/Desktop/CodeSrijan-SkyRanger/raspberry_pi/go2rtc
 
-ExecStart=/home/krish/Desktop/go2rtc
+ExecStart=/home/krish/go2rtc \
+-config /home/krish/Desktop/CodeSrijan-SkyRanger/raspberry_pi/go2rtc/go2rtc.yaml
 
 Restart=always
 RestartSec=5
 
-StandardOutput=append:/var/log/skyranger/go2rtc.log
-StandardError=append:/var/log/skyranger/go2rtc.err
+StandardOutput=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/go2rtc.log
+StandardError=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/go2rtc.err
 
 [Install]
 WantedBy=multi-user.target

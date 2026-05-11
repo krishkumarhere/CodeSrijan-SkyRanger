@@ -1,0 +1,33 @@
+[Unit]
+Description=SkyRanger FPV Webcam Publisher
+After=network-online.target go2rtc.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=krish
+
+WorkingDirectory=/home/krish/Desktop/CodeSrijan-SkyRanger
+
+ExecStart=/usr/bin/ffmpeg \
+-f v4l2 \
+-input_format mjpeg \
+-framerate 30 \
+-video_size 640x480 \
+-i /dev/video8 \
+-c:v libx264 \
+-preset ultrafast \
+-tune zerolatency \
+-pix_fmt yuv420p \
+-rtsp_transport tcp \
+-f rtsp \
+rtsp://127.0.0.1:8555/fpv
+
+Restart=always
+RestartSec=5
+
+StandardOutput=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/fpv.log
+StandardError=append:/home/krish/Desktop/CodeSrijan-SkyRanger/logs/fpv.err
+
+[Install]
+WantedBy=multi-user.target
