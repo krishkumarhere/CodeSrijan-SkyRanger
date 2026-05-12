@@ -246,6 +246,47 @@ def status():
         },
         "usb": "DECOUPLED_TO_RTSP"
     })
+    
+@app.route('/camera/frame')
+def camera_frame():
+
+    frame = pi_camera.last_frame
+
+    if frame is None:
+
+        return (
+            "No frame available",
+            404
+        )
+
+    import cv2
+    import numpy as np
+
+    # If frame already bytes
+    if isinstance(frame, bytes):
+
+        return Response(
+            frame,
+            mimetype='image/jpeg'
+        )
+
+    # If frame is ndarray
+    success, buffer = cv2.imencode(
+        '.jpg',
+        frame
+    )
+
+    if not success:
+
+        return (
+            "Encoding failed",
+            500
+        )
+
+    return Response(
+        buffer.tobytes(),
+        mimetype='image/jpeg'
+    )
 
 # ─────────────────────────────────────────────────────────────
 # MAIN
@@ -268,3 +309,4 @@ if __name__ == '__main__':
         port=8080,
         threaded=True
     )
+    
