@@ -1,4 +1,4 @@
 ai_state = {
-    "infrastructure_mode": False
+    "infrastructure_mode": False,
     "powerline_mode": False
 }
