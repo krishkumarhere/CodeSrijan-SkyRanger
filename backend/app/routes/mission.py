@@ -1,9 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from app.core.mavlink_handler import fetch_mission, get_mission_status
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/mission",
+    tags=["Mission"]
+)
 
-@router.get("/")
+@router.get("")
 def get_mission_list():
     """
     Fetches the current mission from Pixhawk.
