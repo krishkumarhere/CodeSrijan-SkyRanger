@@ -1,29 +1,19 @@
 from fastapi import APIRouter
 from app.core.ai_state import ai_state
-
 import json
 import os
+import time
+from datetime import datetime
+from pathlib import Path
 
 router = APIRouter(
     prefix="/ai",
     tags=["AI"]
 )
 
-# Robust path to project root
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.dirname(
-                os.path.abspath(__file__)
-            )
-        )
-    )
-)
-
-AI_STATE_FILE = os.path.join(
-    BASE_DIR,
-    "ai_state.json"
-)
+# Robust project root resolution
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+AI_STATE_FILE = BASE_DIR / "ai_state.json"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -33,32 +23,45 @@ AI_STATE_FILE = os.path.join(
 @router.get("/latest")
 async def get_latest_ai():
     """
-    Returns latest AI detections from active pipeline.
+    Returns latest AI detections from active pipeline with health metrics.
     """
 
-    if not os.path.exists(AI_STATE_FILE):
-
+    if not AI_STATE_FILE.exists():
         return {
-            "state": "CLEAR",
+            "state": "OFFLINE",
             "fps": 0,
             "detections": [],
-            "status": "offline"
+            "status": "offline",
+            "pipeline": "none"
         }
 
     try:
-
         with open(AI_STATE_FILE, "r") as f:
-
             data = json.load(f)
+            
+            # Determine staleness
+            ts_str = data.get("timestamp")
+            is_stale = True
+            
+            if ts_str:
+                try:
+                    # Parse ISO timestamp from pipeline (handling Z for older Python)
+                    clean_ts = str(ts_str).replace('Z', '+00:00').strip()
+                    dt = datetime.fromisoformat(clean_ts)
+                    diff = time.time() - dt.timestamp()
+                    if diff < 5.0:  # 5 second threshold for "Live"
+                        is_stale = False
+                except Exception as e:
+                    print(f"[AI] Heartbeat Parse Error: {e}")
 
-            data["status"] = "online"
-
+            data["status"] = "online" if not is_stale else "stale"
+            data["heartbeat_valid"] = not is_stale
+            
             return data
 
     except Exception as e:
-
         return {
-            "state": "CLEAR",
+            "state": "ERROR",
             "fps": 0,
             "detections": [],
             "status": "error",
