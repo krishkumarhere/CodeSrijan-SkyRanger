@@ -4,257 +4,278 @@ import os
 import cv2
 import json
 import time
-import logging
+import requests
+from datetime import datetime
 
 from ai_core.integrations.camera_client import CameraClient
 from ai_core.detectors.infrastructure_detector import InfrastructureDetector
 
 
-# ─────────────────────────────────────────────
-# Logging
-# ─────────────────────────────────────────────
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S"
-)
-
-log = logging.getLogger("Infrastructure")
-
-
-# ─────────────────────────────────────────────
-# Pipeline
-# ─────────────────────────────────────────────
-
 class InfrastructurePipeline:
 
     def __init__(self):
 
-        log.info("Initializing camera...")
+        print("[INFO] Initializing camera...")
+
         self.camera = CameraClient()
 
-        log.info("Loading infrastructure detector...")
+        print("[INFO] Loading infrastructure detector...")
+
         self.detector = InfrastructureDetector()
 
-        self.fps = 0
-
-        self.last_snapshot_time = 0
-
-        self.snapshot_cooldown = 3
-
-        # Project root
-        self.BASE_DIR = os.path.dirname(
-            os.path.dirname(
-                os.path.dirname(
-                    os.path.abspath(__file__)
-                )
-            )
-        )
-
-        # JSON output path
-        self.JSON_PATH = os.path.join(
-            self.BASE_DIR,
-            "ai_state.json"
-        )
-
-        # Snapshot directory
-        self.SNAPSHOT_DIR = os.path.join(
-            self.BASE_DIR,
-            "ai_core",
-            "data",
-            "snapshots",
-            "infrastructure"
+        self.snapshot_dir = (
+            "ai_core/data/snapshots/infrastructure"
         )
 
         os.makedirs(
-            self.SNAPSHOT_DIR,
+            self.snapshot_dir,
             exist_ok=True
         )
 
-        log.info("Infrastructure pipeline initialized")
+        self.ai_state_file = "ai_state.json"
 
-    # ─────────────────────────────────────────
-    # Main Loop
-    # ─────────────────────────────────────────
+        # Detection state tracking
+        self.previous_detection_state = False
+
+        # Prevent continuous burst spam
+        self.capture_lock = False
+
+        print("[INFO] Infrastructure pipeline initialized")
+
+    def save_snapshot(
+        self,
+        frame
+    ):
+
+        timestamp = int(time.time() * 1000)
+
+        filename = (
+            f"infra_{timestamp}.jpg"
+        )
+
+        filepath = os.path.join(
+            self.snapshot_dir,
+            filename
+        )
+
+        cv2.imwrite(
+            filepath,
+            frame
+        )
+
+        print(
+            f"[SNAPSHOT] Saved: {filename}"
+        )
+
+    def capture_burst(
+        self,
+        frame
+    ):
+
+        print(
+            "[EVENT] Capturing evidence burst..."
+        )
+
+        for i in range(3):
+
+            self.save_snapshot(frame)
+
+            time.sleep(0.5)
+
+        print(
+            "[EVENT] Snapshot burst complete"
+        )
+
+    def save_ai_state(
+        self,
+        detections,
+        fps,
+        snapshot_event=False
+    ):
+
+        state = {
+            "pipeline": "infrastructure",
+            "timestamp": datetime.now().isoformat(),
+            "fps": round(fps, 2),
+            "detections": detections,
+            "snapshot_event": snapshot_event,
+            "state": (
+                "DETECTION"
+                if len(detections) > 0
+                else "CLEAR"
+            )
+        }
+
+        with open(
+            self.ai_state_file,
+            "w"
+        ) as f:
+
+            json.dump(
+                state,
+                f,
+                indent=2
+            )
+
+    def infrastructure_enabled(self):
+
+        try:
+
+            response = requests.get(
+                "https://demo.skyrangerai.xyz/api/ai/state",
+                timeout=5
+            )
+
+            data = response.json()
+
+            return data.get(
+                "infrastructure_mode",
+                False
+            )
+
+        except Exception as e:
+
+            print(
+                f"[AI STATE ERROR] {e}"
+            )
+
+            return False
 
     def run(self):
 
-        log.info("Infrastructure pipeline started")
+        print(
+            "[INFO] Infrastructure pipeline started"
+        )
 
         prev_time = time.time()
 
         while True:
 
-            try:
+            # -----------------------------------------
+            # CHECK IF AI MODE ENABLED
+            # -----------------------------------------
 
-                frame = self.camera.get_frame()
+            enabled = self.infrastructure_enabled()
 
-                if frame is None:
-                    time.sleep(0.01)
-                    continue
+            if not enabled:
 
-                h, w = frame.shape[:2]
+                time.sleep(1)
 
-                # Run inference
-                detections = self.detector.detect(frame)
+                continue
 
-                # Draw overlays
-                self.draw_overlay(
-                    frame,
-                    detections
-                )
+            # -----------------------------------------
+            # GET CAMERA FRAME
+            # -----------------------------------------
 
-                # FPS
-                now = time.time()
+            frame = self.camera.get_frame()
 
-                self.fps = 1 / max(
-                    now - prev_time,
-                    1e-6
-                )
+            if frame is None:
 
-                prev_time = now
-
-                # Snapshot capture
-                snapshot_path = None
-
-                if (
-                    len(detections) > 0
-                    and
-                    now - self.last_snapshot_time
-                    > self.snapshot_cooldown
-                ):
-
-                    filename = (
-                        f"infra_{int(now)}.jpg"
-                    )
-
-                    snapshot_path = os.path.join(
-                        self.SNAPSHOT_DIR,
-                        filename
-                    )
-
-                    cv2.imwrite(
-                        snapshot_path,
-                        frame
-                    )
-
-                    self.last_snapshot_time = now
-
-                    log.info(
-                        f"[SNAPSHOT] Saved: {filename}"
-                    )
-
-                # Prepare frontend data
-                ai_data = {
-
-                    "pipeline": "infrastructure",
-
-                    "fps": round(
-                        self.fps,
-                        1
-                    ),
-
-                    "detections": [
-
-                        {
-                            "label": d["label"],
-                            "confidence": d["confidence"],
-                            "bbox": d["bbox"]
-                        }
-
-                        for d in detections
-                    ],
-
-                    "snapshot": (
-                        snapshot_path
-                        if snapshot_path
-                        else None
-                    ),
-
-                    "resolution": [w, h],
-
-                    "timestamp": now
-                }
-
-                # Atomic write
-                temp_path = self.JSON_PATH + ".tmp"
-
-                with open(
-                    temp_path,
-                    "w"
-                ) as f:
-
-                    json.dump(
-                        ai_data,
-                        f
-                    )
-
-                os.replace(
-                    temp_path,
-                    self.JSON_PATH
-                )
-
-                # Small sleep
-                time.sleep(0.01)
-
-            except Exception as e:
-
-                log.error(
-                    f"Pipeline error: {e}"
+                print(
+                    "[WARN] Failed to get frame"
                 )
 
                 time.sleep(1)
 
-    # ─────────────────────────────────────────
-    # Stop
-    # ─────────────────────────────────────────
+                continue
 
-    def stop(self):
+            # -----------------------------------------
+            # RUN DETECTION
+            # -----------------------------------------
+
+            detections = self.detector.detect(
+                frame
+            )
+
+            # -----------------------------------------
+            # FPS CALCULATION
+            # -----------------------------------------
+
+            current_time = time.time()
+
+            fps = 1 / (
+                current_time - prev_time
+            )
+
+            prev_time = current_time
+
+            # -----------------------------------------
+            # DRAW DETECTIONS
+            # -----------------------------------------
+
+            for detection in detections:
+
+                x1, y1, x2, y2 = (
+                    detection["bbox"]
+                )
+
+                label = (
+                    detection["label"]
+                )
+
+                confidence = (
+                    detection["confidence"]
+                )
+
+                cv2.rectangle(
+                    frame,
+                    (x1, y1),
+                    (x2, y2),
+                    (0, 0, 255),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"{label} {confidence}",
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 0, 255),
+                    2
+                )
+
+            # -----------------------------------------
+            # SMART BURST SNAPSHOT SYSTEM
+            # -----------------------------------------
+
+            snapshot_event = False
+
+            current_detection_state = (
+                len(detections) > 0
+            )
+
+            # Detection appeared first time
+            if (
+                current_detection_state
+                and not self.capture_lock
+            ):
+
+                self.capture_burst(frame)
+
+                self.capture_lock = True
+
+                snapshot_event = True
+
+            # Scene clear -> rearm system
+            if not current_detection_state:
+
+                self.capture_lock = False
+
+            self.previous_detection_state = (
+                current_detection_state
+            )
+
+            # -----------------------------------------
+            # SAVE AI STATE
+            # -----------------------------------------
+
+            self.save_ai_state(
+                detections,
+                fps,
+                snapshot_event
+            )
+
+            time.sleep(0.05)
 
         self.camera.release()
-
-    # ─────────────────────────────────────────
-    # Overlay Drawing
-    # ─────────────────────────────────────────
-
-    def draw_overlay(
-        self,
-        frame,
-        detections
-    ):
-
-        for det in detections:
-
-            x1, y1, x2, y2 = det["bbox"]
-
-            label = det["label"]
-
-            confidence = det["confidence"]
-
-            color = (0, 0, 255)
-
-            # Bounding box
-            cv2.rectangle(
-                frame,
-                (x1, y1),
-                (x2, y2),
-                color,
-                2
-            )
-
-            # Label
-            text = (
-                f"{label} "
-                f"{confidence:.2f}"
-            )
-
-            cv2.putText(
-                frame,
-                text,
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                color,
-                2
-            )
