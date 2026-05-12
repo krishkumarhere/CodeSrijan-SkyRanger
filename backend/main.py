@@ -51,6 +51,10 @@ app.include_router(system_router)
 app.include_router(mission_router)
 app.include_router(ai_router)
 
+@app.get("/")
+def read_root():
+    return {"message": "SkyRanger GCS API is running", "status": "online"}
+
 @app.get("/health")
 def health():
     return {"status": "online", "service": "SkyRanger GCS"}
