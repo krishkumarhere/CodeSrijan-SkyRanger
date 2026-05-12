@@ -33,7 +33,7 @@ AI_STATE_FILE = os.path.join(
 @router.get("/latest")
 async def get_latest_ai():
     """
-    Returns latest AI detections from infrastructure pipeline.
+    Returns latest AI detections from active pipeline.
     """
 
     if not os.path.exists(AI_STATE_FILE):
@@ -67,7 +67,7 @@ async def get_latest_ai():
 
 
 # ─────────────────────────────────────────────────────────────
-# AI MODE CONTROL
+# AI MODE STATE
 # ─────────────────────────────────────────────────────────────
 
 @router.get("/state")
@@ -76,12 +76,22 @@ async def get_ai_state():
     return ai_state
 
 
+# ─────────────────────────────────────────────────────────────
+# INFRASTRUCTURE MODE
+# ─────────────────────────────────────────────────────────────
+
 @router.post("/infrastructure/enable")
 async def enable_infrastructure():
 
+    # Enable infra
     ai_state["infrastructure_mode"] = True
 
-    print("[AI] Infrastructure mode ENABLED")
+    # Disable powerline
+    ai_state["powerline_mode"] = False
+
+    print(
+        "[AI] Infrastructure mode ENABLED"
+    )
 
     return {
         "success": True,
@@ -95,10 +105,52 @@ async def disable_infrastructure():
 
     ai_state["infrastructure_mode"] = False
 
-    print("[AI] Infrastructure mode DISABLED")
+    print(
+        "[AI] Infrastructure mode DISABLED"
+    )
 
     return {
         "success": True,
         "mode": "infrastructure",
+        "enabled": False
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# POWERLINE MODE
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/powerline/enable")
+async def enable_powerline():
+
+    # Enable powerline
+    ai_state["powerline_mode"] = True
+
+    # Disable infrastructure
+    ai_state["infrastructure_mode"] = False
+
+    print(
+        "[AI] Powerline mode ENABLED"
+    )
+
+    return {
+        "success": True,
+        "mode": "powerline",
+        "enabled": True
+    }
+
+
+@router.post("/powerline/disable")
+async def disable_powerline():
+
+    ai_state["powerline_mode"] = False
+
+    print(
+        "[AI] Powerline mode DISABLED"
+    )
+
+    return {
+        "success": True,
+        "mode": "powerline",
         "enabled": False
     }
