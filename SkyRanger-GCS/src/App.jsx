@@ -394,6 +394,44 @@ export default function App() {
                     title="FPV Stream"
                   />
 
+                  {/* AI Detection Overlay (Target Locking) */}
+                  <div className="absolute inset-0 z-[15] pointer-events-none">
+                    {aiData?.detections?.map((det, i) => {
+                      const [x1, y1, x2, y2] = det.bbox || [0, 0, 0, 0]
+                      // Assume backend is 640x480 for coordinate scaling
+                      const left = (x1 / 640) * 100
+                      const top = (y1 / 480) * 100
+                      const width = ((x2 - x1) / 640) * 100
+                      const height = ((y2 - y1) / 480) * 100
+
+                      return (
+                        <div 
+                          key={i}
+                          className="absolute border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse"
+                          style={{
+                            left: `${left}%`,
+                            top: `${top}%`,
+                            width: `${width}%`,
+                            height: `${height}%`,
+                          }}
+                        >
+                          {/* Targeting Brackets */}
+                          <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-red-400" />
+                          <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-red-400" />
+                          <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-red-400" />
+                          <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-red-400" />
+                          
+                          {/* Detection Label */}
+                          <div className="absolute -top-6 left-0 bg-red-600 text-white font-mono text-[8px] px-2 py-0.5 rounded-sm flex items-center gap-1">
+                            <Crosshair size={8} className="animate-spin" />
+                            <span className="uppercase font-black">{det.label}</span>
+                            <span className="opacity-60">{(det.confidence * 100).toFixed(0)}%</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
                   {/* Tactical Overlays (Scanlines/Noise) */}
                   <div className="absolute inset-0 pointer-events-none z-[20] opacity-[0.03] scanlines" />
                   <div className="absolute inset-0 pointer-events-none z-[20] opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />

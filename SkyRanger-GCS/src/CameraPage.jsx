@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react"
-import { Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation, Camera, Database, Save, ChevronRight } from "lucide-react"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation, Camera, Database, Save, ChevronRight, Info, CheckCircle } from "lucide-react"
 
 const THERMAL_FEED_URL = `/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
@@ -15,8 +15,9 @@ export default function CameraPage({ telemetry }) {
   const [thermalStats, setThermalStats] = useState({ max_temp: 0, avg_temp: 0, hotspots: 0 })
   const [totalDetections, setTotalDetections] = useState(0)
 
-  // Infrastructure Mode & Snapshot States
+  // AI Infrastructure & Grid States
   const [infrastructureMode, setInfrastructureMode] = useState(false)
+  const [powerlineMode, setPowerlineMode] = useState(false)
   const [snapshotMode, setSnapshotMode] = useState(false)
   const [storedFrames, setStoredFrames] = useState(0)
   const [infraAiData, setInfraAiData] = useState({ detections: [], status: "offline", timestamp: 0 })
@@ -28,6 +29,10 @@ export default function CameraPage({ telemetry }) {
   const [aiData, setAiData] = useState({ state: "CLEAR", fps: 0, detections: [], status: "offline", resolution: [640, 480] })
   const aiPollingRef = useRef(null)
 
+  // AI Monitoring System State
+  const [pipelineStatus, setPipelineStatus] = useState("INACTIVE") // INACTIVE, INITIALIZING, ONLINE, OFFLINE
+  const [lastHeartbeat, setLastHeartbeat] = useState(0)
+  
   const containerRef = useRef(null)
 
   // Clock
@@ -62,23 +67,33 @@ export default function CameraPage({ telemetry }) {
   }, [])
 
   useEffect(() => {
-    // If infrastructure mode is ON, we disable edge AI
+    // Pipeline Status Orchestration
+    if (infrastructureMode || powerlineMode) {
+      setPipelineStatus("INITIALIZING")
+    } else {
+      setPipelineStatus("INACTIVE")
+    }
+
     if (infrastructureMode) {
       stopPolling()
       startInfraPolling()
     } else {
       stopInfraPolling()
-      if (aiActive) startPolling()
+      if (aiActive || powerlineMode) startPolling()
     }
     return () => {
       stopPolling()
       stopInfraPolling()
     }
-  }, [aiActive, infrastructureMode])
+  }, [aiActive, infrastructureMode, powerlineMode])
 
-  // Snapshot Engine Mock Logic
+  // Evidence Acquisition Mock Logic
   useEffect(() => {
-    if (infrastructureMode && snapshotMode && infraAiData.detections.length > 0) {
+    const hasDetections = infrastructureMode 
+      ? (infraAiData?.detections?.length > 0) 
+      : (powerlineMode ? (aiData?.detections?.length > 0) : false);
+
+    if ((infrastructureMode || powerlineMode) && snapshotMode && hasDetections) {
       if (!snapshotIntervalRef.current) {
         snapshotIntervalRef.current = setInterval(() => {
           setStoredFrames(prev => prev + 1)
@@ -93,19 +108,32 @@ export default function CameraPage({ telemetry }) {
     return () => {
       if (snapshotIntervalRef.current) clearInterval(snapshotIntervalRef.current)
     }
-  }, [infrastructureMode, snapshotMode, infraAiData.detections])
+  }, [infrastructureMode, powerlineMode, snapshotMode, infraAiData.detections, aiData.detections])
 
   function startPolling() {
     stopPolling()
     aiPollingRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/camera/detections`)
+        const res = await fetch(`/api/ai/latest`)
+        if (!res.ok) throw new Error("AI Backend Offline")
         const data = await res.json()
         setAiData(data)
+        
+        // Compute Grid/Edge Pipeline Health
+        if (powerlineMode || aiActive) {
+          if (data.heartbeat_valid) {
+            setPipelineStatus("ONLINE")
+            setLastHeartbeat(Date.now())
+          } else if (Date.now() - new Date(data.timestamp).getTime() > 5000) {
+            setPipelineStatus("OFFLINE")
+          }
+        }
       } catch (e) {
         console.error("AI Poll Error:", e)
+        setAiData(prev => ({ ...prev, status: "offline", state: "OFFLINE" }))
+        if (powerlineMode) setPipelineStatus("OFFLINE")
       }
-    }, 300)
+    }, 1000)
   }
 
   function stopPolling() {
@@ -122,11 +150,21 @@ export default function CameraPage({ telemetry }) {
         const res = await fetch(`http://localhost:9000/detections`)
         const data = await res.json()
         setInfraAiData({ ...data, status: "online" })
+        
+        // Compute Integrity Pipeline Health
+        const ts = typeof data.timestamp === "number" ? data.timestamp * 1000 : new Date(data.timestamp).getTime()
+        if (Date.now() - ts < 3000) {
+          setPipelineStatus("ONLINE")
+          setLastHeartbeat(Date.now())
+        } else {
+          setPipelineStatus("OFFLINE")
+        }
       } catch (e) {
         setInfraAiData(prev => ({ ...prev, status: "offline" }))
+        setPipelineStatus("OFFLINE")
         console.error("Infra AI Poll Error:", e)
       }
-    }, 250)
+    }, 500)
   }
 
   function stopInfraPolling() {
@@ -139,7 +177,7 @@ export default function CameraPage({ telemetry }) {
   const [serviceOnline, setServiceOnline] = useState(true) // AI Service Health
   const [isToggling, setIsToggling] = useState(false) // Toggle lock
 
-  // 1. Health Monitoring: Periodically check if the AI backend is alive
+  // 1. Health Monitoring: Periodically check if the AI backend is alive and sync state
   useEffect(() => {
     const checkHealth = async () => {
       try {
@@ -147,8 +185,15 @@ export default function CameraPage({ telemetry }) {
         if (res.ok) {
           const data = await res.json()
           setServiceOnline(true)
-          if (typeof data.infrastructure_mode === "boolean" && !isToggling) {
-            setInfrastructureMode(data.infrastructure_mode)
+          
+          // Only update local state from backend if we aren't in the middle of a toggle
+          if (!isToggling) {
+            if (typeof data.infrastructure_mode === "boolean") {
+              setInfrastructureMode(data.infrastructure_mode)
+            }
+            if (typeof data.powerline_mode === "boolean") {
+              setPowerlineMode(data.powerline_mode)
+            }
           }
         } else {
           setServiceOnline(false)
@@ -162,9 +207,9 @@ export default function CameraPage({ telemetry }) {
     return () => clearInterval(interval)
   }, [isToggling])
 
-  // 2. Verified Toggle handler: Call backend and wait for success confirmation
+  // 2. AI Mode Toggle Handlers with Mutual Exclusion
   const toggleInfrastructureMode = async () => {
-    if (!serviceOnline || isToggling) return; // Prevent action if offline or busy
+    if (!serviceOnline || isToggling) return;
 
     const newState = !infrastructureMode
     const endpoint = newState ? "/api/ai/infrastructure/enable" : "/api/ai/infrastructure/disable"
@@ -174,16 +219,44 @@ export default function CameraPage({ telemetry }) {
       const res = await fetch(endpoint, { method: "POST" })
       if (res.ok) {
         const result = await res.json()
-        // Verify the backend actually updated the state
-        if (result.status === "success" || result.infrastructure_mode === newState) {
+        if (result.success || result.infrastructure_mode === newState) {
           setInfrastructureMode(newState)
+          // Mutual Exclusion: If enabling infrastructure, visually disable powerline
+          if (newState) setPowerlineMode(false)
         }
       } else {
         throw new Error("Server rejected toggle")
       }
     } catch (e) {
       console.error("AI Control Failure:", e)
-      setServiceOnline(false) // Mark as offline on network failure
+      setServiceOnline(false)
+    } finally {
+      setIsToggling(false)
+    }
+  }
+
+  const togglePowerlineMode = async () => {
+    if (!serviceOnline || isToggling) return;
+
+    const newState = !powerlineMode
+    const endpoint = newState ? "/api/ai/powerline/enable" : "/api/ai/powerline/disable"
+    
+    try {
+      setIsToggling(true)
+      const res = await fetch(endpoint, { method: "POST" })
+      if (res.ok) {
+        const result = await res.json()
+        if (result.success || result.powerline_mode === newState) {
+          setPowerlineMode(newState)
+          // Mutual Exclusion: If enabling powerline, visually disable infrastructure
+          if (newState) setInfrastructureMode(false)
+        }
+      } else {
+        throw new Error("Server rejected toggle")
+      }
+    } catch (e) {
+      console.error("AI Control Failure:", e)
+      setServiceOnline(false)
     } finally {
       setIsToggling(false)
     }
@@ -213,60 +286,51 @@ export default function CameraPage({ telemetry }) {
   // Bounding Box Scaling Logic
   const renderBBoxes = () => {
     const isInfra = infrastructureMode;
+    const isPower = powerlineMode;
+    // Infrastructure uses local port 9000 polling (infraAiData)
+    // Powerline and Default AI use /api/ai/latest (aiData)
     const currentData = isInfra ? infraAiData : aiData;
-    const isActive = isInfra ? (infrastructureMode && infraAiData.status === "online") : aiActive;
+    const isActive = isInfra 
+      ? (infrastructureMode && infraAiData.status === "online") 
+      : (isPower || aiActive) && aiData.state !== "OFFLINE";
 
     if (!isActive || !currentData.detections || !containerRef.current) return null;
 
-    // Use default res for scaling if not provided by backend
-    const [srcW, srcH] = (isInfra ? [640, 480] : (currentData.resolution || [640, 480]));
+    // Use default res for scaling (640x480)
+    const [srcW, srcH] = [640, 480];
     const { offsetWidth: displayW, offsetHeight: displayH } = containerRef.current;
 
     const scaleX = displayW / srcW;
     const scaleY = displayH / srcH;
 
     return currentData.detections.map((det, i) => {
-      const [x1, y1, x2, y2] = det.bbox;
+      const [x1, y1, x2, y2] = det.bbox || [0, 0, 0, 0];
       const width = (x2 - x1) * scaleX;
       const height = (y2 - y1) * scaleY;
       const left = x1 * scaleX;
       const top = y1 * scaleY;
 
-      let borderColor = "border-blue-500";
-      let bgColor = "bg-blue-500/10";
-
-      if (isInfra) {
-        const infraStyles = {
-          crack: "border-cyan-400 bg-cyan-400/10 shadow-[0_0_15px_rgba(34,211,238,0.3)]",
-          rust: "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]",
-          corrosion: "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]",
-          spalling: "border-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.3)]",
-          water_leakage: "border-magenta-500 bg-magenta-500/10 shadow-[0_0_15px_rgba(255,0,255,0.3)]"
-        };
-        borderColor = infraStyles[det.label] || "border-cyan-500";
-      } else {
-        const zoneColors = {
-          CLEAR: "border-green-500 bg-green-500/10",
-          WARN: "border-yellow-500 bg-yellow-500/10",
-          ALERT: "border-orange-500 bg-orange-500/10",
-          DANGER: "border-red-500 bg-red-500/10"
-        };
-        borderColor = zoneColors[det.zone] || "border-blue-500";
-      }
+      // Force RED for all detections as per user request ("red box if detected")
+      const borderColor = "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]";
+      const textColor = "text-white bg-red-600";
 
       return (
         <div
           key={i}
-          className={`absolute border-2 ${borderColor} transition-all duration-300`}
+          className={`absolute border-2 ${borderColor} animate-pulse transition-all duration-300`}
           style={{ left, top, width, height }}
         >
-          <div className={`absolute -top-6 left-0 px-2 py-0.5 bg-black/80 text-white font-mono text-[10px] font-black uppercase whitespace-nowrap border-l-2 ${borderColor.split(' ')[0]}`}>
-            {det.label} {(det.confidence ? (det.confidence * 100).toFixed(0) : (det.conf * 100).toFixed(0))}%
+          {/* Targeting Brackets */}
+          <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-red-400" />
+          <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-red-400" />
+          <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-red-400" />
+          <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-red-400" />
+
+          {/* Target Label */}
+          <div className={`absolute -top-6 left-0 px-2 py-0.5 ${textColor} font-mono text-[9px] font-black uppercase whitespace-nowrap flex items-center gap-1`}>
+            <Target size={10} className="animate-spin" />
+            {det.label} {det.confidence ? (det.confidence * 100).toFixed(0) : "0"}%
           </div>
-          <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-inherit" />
-          <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-inherit" />
-          <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-inherit" />
-          <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-inherit" />
         </div>
       );
     });
@@ -281,6 +345,42 @@ export default function CameraPage({ telemetry }) {
     }
   };
 
+  const renderStatusAlert = () => {
+    if (pipelineStatus === "INACTIVE") return (
+      <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full backdrop-blur-md">
+        <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+        <span className="font-mono text-[9px] font-black text-gray-500 uppercase tracking-widest">No Active Model</span>
+      </div>
+    );
+    
+    if (pipelineStatus === "INITIALIZING") return (
+      <div className="flex items-center gap-2 bg-yellow-500/20 border border-yellow-500/40 px-4 py-1.5 rounded-full backdrop-blur-md animate-pulse">
+        <Activity size={10} className="text-yellow-500 animate-spin" />
+        <span className="font-mono text-[9px] font-black text-yellow-500 uppercase tracking-widest">Initializing AI Pipeline</span>
+      </div>
+    );
+
+    if (pipelineStatus === "OFFLINE") return (
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2 bg-red-600 border border-red-400 px-6 py-2 rounded-full shadow-[0_0_30px_rgba(220,38,38,0.4)] animate-bounce">
+          <AlertCircle size={14} className="text-white" />
+          <span className="font-mono text-[10px] font-black text-white uppercase tracking-widest">{infrastructureMode ? "Asset Integrity" : "Grid Analysis"} Model Offline</span>
+        </div>
+        <div className="bg-black/60 backdrop-blur-md px-4 py-1 rounded-lg border border-red-500/20">
+          <span className="font-mono text-[8px] text-red-400 uppercase tracking-widest">Inference server may be unreachable</span>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="flex items-center gap-3 bg-green-500/20 border border-green-500/40 px-5 py-2 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+        <CheckCircle size={12} className="text-green-500" />
+        <span className="font-mono text-[10px] font-black text-green-500 uppercase tracking-widest">{infrastructureMode ? "Asset Integrity" : "Grid Analysis"} Model Online</span>
+        <div className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#020617] relative">
       <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
@@ -290,8 +390,16 @@ export default function CameraPage({ telemetry }) {
         <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4 lg:p-8">
           <div
             ref={containerRef}
-            className={`w-full h-full relative rounded-[2.5rem] overflow-hidden border transition-all duration-700 shadow-2xl group/feed ${aiData.state === "DANGER" ? "border-red-500 ring-4 ring-red-500/20" : "border-blue-500/20"}`}
+            className={`w-full h-full relative rounded-[2.5rem] overflow-hidden border transition-all duration-700 shadow-2xl group/feed ${aiData.state === "DANGER" ? "border-red-500 ring-4 ring-red-500/20" : pipelineStatus === "OFFLINE" ? "border-red-600 ring-4 ring-red-900/20 shadow-[inset_0_0_100px_rgba(220,38,38,0.1)]" : "border-blue-500/20"}`}
           >
+            {/* Status Alert Overlay */}
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
+              {renderStatusAlert()}
+            </div>
+
+            {pipelineStatus === "OFFLINE" && (
+              <div className="absolute inset-0 z-[90] pointer-events-none border-[12px] border-red-600/10 animate-pulse" />
+            )}
 
             {/* HUD Overlays */}
             <div className="absolute inset-0 pointer-events-none z-[10] transition-opacity">
@@ -339,7 +447,7 @@ export default function CameraPage({ telemetry }) {
               )}
 
               {/* AI Overlay Layer */}
-              {(aiActive || infrastructureMode) && !thermalMode && (
+              {(aiActive || infrastructureMode || powerlineMode) && !thermalMode && (
                 <div className="absolute inset-0 z-[20]">
                   {renderBBoxes()}
                 </div>
@@ -362,8 +470,8 @@ export default function CameraPage({ telemetry }) {
 
                     {/* AI HUD Stats & FPS Meter */}
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`px-6 py-2 rounded-2xl border backdrop-blur-xl font-mono text-xs font-black tracking-[0.2em] animate-in slide-in-from-top-4 duration-500 ${infrastructureMode ? (infraAiData.status === "online" ? "text-cyan-400 border-cyan-500/40 bg-cyan-500/10" : "text-red-500 border-red-500 bg-red-500/10") : getRiskColor(aiData.state)}`}>
-                        {infrastructureMode ? (infraAiData.status === "online" ? "INFRASTRUCTURE_ACTIVE" : "AI_LINK_LOST") : `AI_STATE: ${aiData.state}`}
+                      <div className={`px-6 py-2 rounded-2xl border backdrop-blur-xl font-mono text-xs font-black tracking-[0.2em] animate-in slide-in-from-top-4 duration-500 ${infrastructureMode ? (infraAiData.status === "online" ? "text-cyan-400 border-cyan-500/40 bg-cyan-500/10" : "text-red-500 border-red-500 bg-red-500/10") : powerlineMode ? "text-purple-400 border-purple-500/40 bg-purple-500/10" : getRiskColor(aiData.state)}`}>
+                        {infrastructureMode ? (infraAiData.status === "online" ? "INFRASTRUCTURE_ACTIVE" : "AI_LINK_LOST") : powerlineMode ? "POWERLINE_INSPECTION_ACTIVE" : `AI_STATE: ${aiData.state}`}
                       </div>
                       <div className="bg-black/60 border border-white/5 px-3 py-1 rounded-xl font-mono text-[9px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-2">
                         <Activity size={10} className="animate-pulse" />
@@ -385,24 +493,24 @@ export default function CameraPage({ telemetry }) {
 
                   <div className="flex justify-between items-end">
                     <div className="flex flex-col gap-2">
-                      <div className={`flex items-center gap-3 border px-4 py-2 rounded-2xl backdrop-blur-md transition-all ${infrastructureMode ? "bg-cyan-500/20 border-cyan-500/30" : (aiData.state === "DANGER" ? "bg-red-600 border-red-500 animate-pulse shadow-[0_0_20px_#ef4444]" : "bg-blue-500/20 border-blue-500/30")}`}>
-                        <div className={`w-2 h-2 rounded-full ${infrastructureMode ? "bg-cyan-400 shadow-[0_0_10px_#22d3ee]" : (aiData.state === "DANGER" ? "bg-white" : "bg-blue-500 shadow-[0_0_10px_#3b82f6]")}`} />
+                      <div className={`flex items-center gap-3 border px-4 py-2 rounded-2xl backdrop-blur-md transition-all ${infrastructureMode ? "bg-cyan-500/20 border-cyan-500/30" : powerlineMode ? "bg-purple-500/20 border-purple-500/30" : (aiData.state === "DANGER" ? "bg-red-600 border-red-500 animate-pulse shadow-[0_0_20px_#ef4444]" : "bg-blue-500/20 border-blue-500/30")}`}>
+                        <div className={`w-2 h-2 rounded-full ${infrastructureMode ? "bg-cyan-400 shadow-[0_0_10px_#22d3ee]" : powerlineMode ? "bg-purple-400 shadow-[0_0_10px_#a855f7]" : (aiData.state === "DANGER" ? "bg-white" : "bg-blue-500 shadow-[0_0_10px_#3b82f6]")}`} />
                         <span className="font-mono text-[10px] font-black text-white tracking-[0.2em] uppercase">
-                          {infrastructureMode ? "INFRASTRUCTURE_INSPECTION_ACTIVE" : "AI_SURVEILLANCE_ACTIVE"}
+                          {infrastructureMode ? "INFRASTRUCTURE_INSPECTION_ACTIVE" : powerlineMode ? "POWERLINE_INSPECTION_ACTIVE" : "AI_SURVEILLANCE_ACTIVE"}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 bg-black/60 border border-white/5 px-6 py-2 rounded-full backdrop-blur-sm">
                       <div className="flex items-center gap-2">
                         <Cpu size={12} className="text-blue-500" />
-                        <span className="font-mono text-[9px] text-gray-400 font-bold uppercase tracking-widest">{infrastructureMode ? "REMOTE_AI_NODE" : "SONY_IMX708"}</span>
+                        <span className="font-mono text-[9px] text-gray-400 font-bold uppercase tracking-widest">{infrastructureMode ? "REMOTE_AI_NODE" : powerlineMode ? "POWERLINE_CORE" : "SONY_IMX708"}</span>
                       </div>
                       <div className="w-px h-3 bg-white/10" />
                       <span className="font-mono text-[9px] text-blue-400 font-bold uppercase tracking-widest">{resolution} @ 30FPS</span>
                     </div>
                   </div>
 
-                  {/* Infrastructure Mode Banner */}
+                  {/* Mode Specific HUD Banners */}
                   {infrastructureMode && (
                     <div className="absolute top-1/2 left-6 -translate-y-1/2 z-[30] pointer-events-none">
                       <div className="flex items-center gap-4 bg-[#0891b2]/20 border border-cyan-500/40 backdrop-blur-xl px-6 py-3 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.2)] animate-in fade-in slide-in-from-left-8 duration-700">
@@ -410,6 +518,18 @@ export default function CameraPage({ telemetry }) {
                         <div className="flex flex-col">
                           <span className="font-mono text-[10px] font-black text-white tracking-[0.2em] uppercase">INFRASTRUCTURE_INSPECTION_ACTIVE</span>
                           <span className="font-mono text-[7px] text-cyan-400/60 uppercase font-bold tracking-widest">High_Throughput_Pipeline_Running</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {powerlineMode && (
+                    <div className="absolute top-1/2 left-6 -translate-y-1/2 z-[30] pointer-events-none">
+                      <div className="flex items-center gap-4 bg-purple-900/20 border border-purple-500/40 backdrop-blur-xl px-6 py-3 rounded-2xl shadow-[0_0_30px_rgba(168,85,247,0.2)] animate-in fade-in slide-in-from-left-8 duration-700">
+                        <Zap size={16} className="text-purple-400 animate-pulse" />
+                        <div className="flex flex-col">
+                          <span className="font-mono text-[10px] font-black text-white tracking-[0.2em] uppercase">POWERLINE_ANALYSIS_ACTIVE</span>
+                          <span className="font-mono text-[7px] text-purple-400/60 uppercase font-bold tracking-widest">Corona_Discharge_Monitoring_Engaged</span>
                         </div>
                       </div>
                     </div>
@@ -434,11 +554,31 @@ export default function CameraPage({ telemetry }) {
                       </div>
                     </div>
                   )}
+
+                  {/* AI PIPELINE OFFLINE WARNING BANNER */}
+                  {pipelineStatus === "OFFLINE" && (infrastructureMode || powerlineMode) && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] pointer-events-none w-full max-w-lg px-8">
+                      <div className="bg-red-900/90 border-2 border-red-500 backdrop-blur-2xl p-8 rounded-3xl flex flex-col items-center gap-4 shadow-[0_0_100px_rgba(239,68,68,0.3)] animate-in zoom-in duration-300">
+                        <AlertCircle className="text-red-500" size={48} />
+                        <div className="text-center">
+                          <div className="font-outfit text-2xl font-black text-white uppercase tracking-widest mb-1">AI PIPELINE NOT DETECTED</div>
+                          <div className="font-mono text-[10px] text-red-400 font-bold uppercase tracking-widest">Inference server may be offline or unreachable</div>
+                        </div>
+                        <div className="w-full h-px bg-red-500/20 my-2" />
+                        <div className="flex items-center gap-4">
+                          <div className="flex flex-col items-center">
+                            <span className="font-mono text-[8px] text-gray-400 uppercase">Last Heartbeat</span>
+                            <span className="font-mono text-[10px] text-white">{lastHeartbeat ? `${Math.floor((Date.now() - lastHeartbeat)/1000)}s ago` : "NEVER"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Danger Alert Center Banner */}
-              {aiData.state === "DANGER" && !infrastructureMode && (
+              {aiData.state === "DANGER" && !infrastructureMode && !powerlineMode && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[30] pointer-events-none">
                   <div className="bg-red-600 border-2 border-white/50 backdrop-blur-2xl px-12 py-8 rounded-[2rem] flex flex-col items-center gap-4 animate-pulse shadow-[0_0_100px_rgba(239,68,68,0.5)]">
                     <div className="relative">
@@ -514,54 +654,79 @@ export default function CameraPage({ telemetry }) {
         <div className="w-full lg:w-[320px] xl:w-[360px] h-auto lg:h-full bg-[#070b14]/60 border-l border-blue-500/10 overflow-y-auto custom-scrollbar p-8 flex flex-col gap-10 backdrop-blur-xl relative">
           <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
 
-          <section>
-            <div className="font-mono text-[9px] tracking-[0.25em] text-cyan-500/60 uppercase font-black mb-4 px-2">AI Engine</div>
+          {/* AI Mode Controls */}
+          <section className="space-y-4">
+            <div className="font-mono text-[9px] tracking-[0.25em] text-cyan-500/60 uppercase font-black mb-2 px-2">Mission Intelligence</div>
+            
+            {/* Infrastructure Toggle */}
             <button
               onClick={toggleInfrastructureMode}
-              disabled={!serviceOnline || isToggling}
-              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : infrastructureMode ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+              disabled={!serviceOnline || isToggling || powerlineMode}
+              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : powerlineMode ? "opacity-30 cursor-not-allowed border-white/5 bg-white/[0.02] text-gray-700" : infrastructureMode ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
             >
               <div className="flex flex-col items-start gap-1">
                 <span className="font-mono text-[10px] font-black uppercase tracking-widest">
-                  {!serviceOnline ? "AI Server Offline" : "Infrastructure Mode"}
+                  {!serviceOnline ? "AI Server Offline" : "Asset Integrity"}
                 </span>
                 <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
-                  {isToggling ? "VERIFYING_MODE..." : !serviceOnline ? "CONNECTION_LOST" : infrastructureMode ? "INSPECTION_PIPELINE_READY" : "SYSTEM_STANDBY"}
+                  {powerlineMode ? "LOCKED_BY_GRID_MODE" : isToggling ? "VERIFYING_NODE..." : (infrastructureMode && pipelineStatus === "ONLINE") ? "INTEGRITY_PIPELINE_ACTIVE" : (infrastructureMode && pipelineStatus === "OFFLINE") ? "INTEGRITY_OFFLINE" : "STANDBY"}
                 </span>
               </div>
-              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : infrastructureMode ? "bg-cyan-500" : "bg-white/10"}`}>
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${infrastructureMode ? "left-6" : "left-1"} ${isToggling ? "animate-pulse" : ""}`} />
+              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : (infrastructureMode && pipelineStatus === "OFFLINE") ? "bg-red-600" : infrastructureMode ? "bg-cyan-500" : "bg-white/10"}`}>
+                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${infrastructureMode ? "left-6" : "left-1"} ${isToggling && infrastructureMode ? "animate-pulse" : ""}`} />
               </div>
             </button>
-            {infrastructureMode && serviceOnline && (
+
+            {/* Powerline Toggle */}
+            <button
+              onClick={togglePowerlineMode}
+              disabled={!serviceOnline || isToggling || infrastructureMode}
+              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : infrastructureMode ? "opacity-30 cursor-not-allowed border-white/5 bg-white/[0.02] text-gray-700" : powerlineMode ? (pipelineStatus === "OFFLINE" ? "bg-red-900/20 border-red-500/40 text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.1)]" : "bg-purple-500/20 border-purple-500/40 text-purple-400 shadow-[0_0_30px_rgba(168,85,247,0.1)]") : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+            >
+              <div className="flex flex-col items-start gap-1">
+                <span className="font-mono text-[10px] font-black uppercase tracking-widest">
+                  {!serviceOnline ? "AI Server Offline" : "Grid Analysis"}
+                </span>
+                <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
+                  {infrastructureMode ? "LOCKED_BY_ASSET_MODE" : isToggling ? "SYNCING_MATRIX..." : (powerlineMode && pipelineStatus === "ONLINE") ? "GRID_PIPELINE_ACTIVE" : (powerlineMode && pipelineStatus === "OFFLINE") ? "GRID_OFFLINE" : "READY"}
+                </span>
+              </div>
+              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : (powerlineMode && pipelineStatus === "OFFLINE") ? "bg-red-600" : powerlineMode ? "bg-purple-500" : "bg-white/10"}`}>
+                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${powerlineMode ? "left-6" : "left-1"} ${isToggling && powerlineMode ? "animate-pulse" : ""}`} />
+              </div>
+            </button>
+
+            {(infrastructureMode || powerlineMode) && serviceOnline && (
               <div className="mt-3 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
                 <AlertCircle size={12} className="text-amber-500" />
-                <span className="font-mono text-[8px] text-amber-500 uppercase font-bold tracking-widest">EDGE_OBJECT_DETECTION_DISABLED</span>
+                <span className="font-mono text-[8px] text-amber-500 uppercase font-bold tracking-widest">COLLISION_AVOIDANCE_OVERRIDDEN</span>
               </div>
             )}
+            
             {!serviceOnline && (
               <div className="mt-3 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-pulse">
                 <Info size={12} className="text-red-500" />
-                <span className="font-mono text-[8px] text-red-500 uppercase font-bold tracking-widest">Verify AI server on laptop</span>
+                <span className="font-mono text-[8px] text-red-500 uppercase font-bold tracking-widest">Verify AI laptop connection</span>
               </div>
             )}
           </section>
 
-          {infrastructureMode ? (
+          {/* Evidence Acquisition Section - Enabled for both Integrity and Grid modes */}
+          {(infrastructureMode || powerlineMode) ? (
             <section className="animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="flex items-center gap-3 mb-6">
-                <Camera size={16} className="text-cyan-500" />
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest text-white">Snapshot Engine</span>
+                <Camera size={16} className={infrastructureMode ? "text-cyan-500" : "text-purple-500"} />
+                <span className="font-mono text-[10px] font-black uppercase tracking-widest text-white">Evidence Acquisition</span>
               </div>
-              <div className="bg-black/40 border border-white/5 rounded-[2rem] p-6 space-y-6">
+              <div className={`bg-black/40 border ${infrastructureMode ? "border-cyan-500/10" : "border-purple-500/10"} rounded-[2rem] p-6 space-y-6`}>
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
-                    <span className="font-mono text-[9px] text-white uppercase font-black">Enable Snapshots</span>
-                    <span className="font-mono text-[7px] text-gray-500 uppercase tracking-widest">Capture_Frames_For_Offline_Analysis</span>
+                    <span className="font-mono text-[9px] text-white uppercase font-black">Autonomous Capture</span>
+                    <span className="font-mono text-[7px] text-gray-500 uppercase tracking-widest">Archive_Frames_For_Forensic_Review</span>
                   </div>
                   <button
                     onClick={() => setSnapshotMode(!snapshotMode)}
-                    className={`w-8 h-4 rounded-full relative transition-colors ${snapshotMode ? "bg-cyan-500" : "bg-white/10"}`}
+                    className={`w-8 h-4 rounded-full relative transition-colors ${snapshotMode ? (infrastructureMode ? "bg-cyan-500" : "bg-purple-500") : "bg-white/10"}`}
                   >
                     <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${snapshotMode ? "left-4.5" : "left-0.5"}`} />
                   </button>
@@ -570,7 +735,7 @@ export default function CameraPage({ telemetry }) {
                 <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                   <div className="flex items-center gap-3">
                     <Database size={14} className="text-gray-500" />
-                    <span className="font-mono text-[9px] text-gray-500 uppercase font-bold">Stored_Frames</span>
+                    <span className="font-mono text-[9px] text-gray-500 uppercase font-bold">Archived Metrics</span>
                   </div>
                   <span className="font-outfit text-lg font-black text-white">{storedFrames}</span>
                 </div>
@@ -580,7 +745,7 @@ export default function CameraPage({ telemetry }) {
                   className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 font-mono text-[9px] text-gray-600 font-black uppercase tracking-[0.2em] cursor-not-allowed"
                 >
                   <Save size={12} />
-                  Download Dataset
+                  Export Forensic Log
                 </button>
               </div>
             </section>
@@ -643,14 +808,14 @@ export default function CameraPage({ telemetry }) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between text-[10px] font-mono">
                 <span className="text-gray-500 uppercase tracking-widest">Processing</span>
-                <span className={`font-black tracking-widest transition-colors duration-500 ${infrastructureMode ? "text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.3)]" : "text-blue-500"}`}>
-                  {infrastructureMode ? "REMOTE_INSPECTION_NODE" : "EDGE_AI_CORE"}
+                <span className={`font-black tracking-widest transition-colors duration-500 ${infrastructureMode ? "text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.3)]" : powerlineMode ? "text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.3)]" : "text-blue-500"}`}>
+                  {infrastructureMode ? "REMOTE_INSPECTION_NODE" : powerlineMode ? "POWERLINE_AI_CORE" : "EDGE_AI_CORE"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[10px] font-mono">
                 <span className="text-gray-500 uppercase tracking-widest">Model</span>
-                <span className={`font-black tracking-widest text-[9px] transition-colors duration-500 ${infrastructureMode ? "text-cyan-100" : "text-white"}`}>
-                  {infrastructureMode ? "infra_yolov8n.pt" : "YOLOv8n_V4.1"}
+                <span className={`font-black tracking-widest text-[9px] transition-colors duration-500 ${infrastructureMode ? "text-cyan-100" : powerlineMode ? "text-purple-100" : "text-white"}`}>
+                  {infrastructureMode ? "infra_yolov8n.pt" : powerlineMode ? "powerline_v2.pt" : "YOLOv8n_V4.1"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[10px] font-mono">
