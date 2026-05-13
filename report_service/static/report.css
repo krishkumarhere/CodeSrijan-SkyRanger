@@ -1,0 +1,181 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 30px;
+    color: #1e293b;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    background: #0f172a;
+    color: white;
+
+    padding: 25px;
+
+    border-radius: 12px;
+
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 32px;
+}
+
+.header p {
+    margin-top: 5px;
+    opacity: 0.8;
+}
+
+.risk {
+    padding: 15px 25px;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 20px;
+}
+
+.risk-low {
+    background: #16a34a;
+}
+
+.risk-medium {
+    background: #ea580c;
+}
+
+.risk-high {
+    background: #dc2626;
+}
+
+.risk-critical {
+    background: #7f1d1d;
+}
+
+.section-title {
+    background: #2563eb;
+    color: white;
+
+    padding: 12px 20px;
+
+    font-weight: bold;
+
+    margin-top: 30px;
+    margin-bottom: 20px;
+
+    border-radius: 8px;
+}
+
+.summary-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 15px;
+}
+
+.card {
+
+    background: #f8fafc;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 10px;
+
+    padding: 15px;
+}
+
+.label {
+    color: #64748b;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.value {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.detection-block {
+
+    display: flex;
+
+    gap: 25px;
+
+    margin-bottom: 40px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 12px;
+
+    padding: 20px;
+}
+
+.detection-image img {
+
+    width: 320px;
+
+    height: 220px;
+
+    object-fit: cover;
+
+    border-radius: 10px;
+}
+
+.detection-info {
+    flex: 1;
+}
+
+.detection-info h2 {
+    margin-top: 0;
+}
+
+.detection-info table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+.detection-info td {
+
+    border: 1px solid #cbd5e1;
+
+    padding: 12px;
+}
+
+.analysis-box {
+
+    background: #f8fafc;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 12px;
+
+    padding: 25px;
+
+    line-height: 1.8;
+}
+
+.no-detection {
+
+    padding: 20px;
+
+    background: #ecfdf5;
+
+    border: 1px solid #16a34a;
+
+    border-radius: 10px;
+}
+
+.footer {
+
+    margin-top: 40px;
+
+    text-align: center;
+
+    color: #64748b;
+
+    font-size: 12px;
+}

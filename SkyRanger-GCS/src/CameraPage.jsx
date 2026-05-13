@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation, Camera, Database, Save, ChevronRight, Info, CheckCircle } from "lucide-react"
+import { 
+  Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation, 
+  Camera, Database, Save, ChevronRight, Info, CheckCircle, FileText, Download, 
+  Loader2, RefreshCw, BarChart3, ShieldCheck, AlertTriangle
+} from "lucide-react"
 
 const THERMAL_FEED_URL = `/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
@@ -34,6 +38,22 @@ export default function CameraPage({ telemetry }) {
   const [lastHeartbeat, setLastHeartbeat] = useState(0)
   
   const containerRef = useRef(null)
+
+  // Report Generation States
+  const [reportState, setReportState] = useState("idle") // idle, generating, success, error
+  const [reportProgress, setReportProgress] = useState(0)
+  const [reportMessageIndex, setReportMessageIndex] = useState(0)
+  const [reportResult, setReportResult] = useState(null)
+  const [reportError, setReportError] = useState(null)
+
+  const reportMessages = [
+    "Initializing Mission Replay...",
+    "Loading Structural Scan Data...",
+    "Running AI Defect Analysis...",
+    "Generating Engineering Summary...",
+    "Building Inspection Report...",
+    "Finalizing PDF Artifact...",
+  ]
 
   // Clock
   useEffect(() => {
@@ -278,6 +298,49 @@ export default function CameraPage({ telemetry }) {
       setStreaming(true)
     } catch (e) { console.error(e) }
     setLoading(false)
+  }
+
+  const handleGenerateReport = async () => {
+    setReportState("generating")
+    setReportProgress(0)
+    setReportMessageIndex(0)
+    setReportResult(null)
+    setReportError(null)
+
+    // Start progress and message cycles
+    const progressInterval = setInterval(() => {
+      setReportProgress(prev => (prev < 90 ? prev + Math.floor(Math.random() * 15) : 90))
+    }, 2000)
+
+    const messageInterval = setInterval(() => {
+      setReportMessageIndex(prev => (prev + 1) % reportMessages.length)
+    }, 3500)
+
+    try {
+      const response = await fetch("/api/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: "generate" }),
+      })
+
+      if (!response.ok) throw new Error("Report generation failed")
+      const data = await response.json()
+
+      if (data.success) {
+        setReportProgress(100)
+        setReportResult(data)
+        setReportState("success")
+      } else {
+        throw new Error(data.error || "Unknown error")
+      }
+    } catch (err) {
+      console.error("Report Error:", err)
+      setReportError(err.message)
+      setReportState("error")
+    } finally {
+      clearInterval(progressInterval)
+      clearInterval(messageInterval)
+    }
   }
 
   const showPiStream = streamOk && streaming && !thermalMode
@@ -772,6 +835,28 @@ export default function CameraPage({ telemetry }) {
             </section>
           )}
 
+          {/* AI Report Generation Button */}
+          <section className="pt-4 mt-auto">
+            <button
+              onClick={handleGenerateReport}
+              className="w-full relative group overflow-hidden rounded-2xl p-[1px] transition-all active:scale-95"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-gradient-x opacity-30 group-hover:opacity-100 transition-opacity" />
+              <div className="relative bg-[#070b14]/90 backdrop-blur-xl rounded-2xl py-4 px-6 flex items-center justify-between border border-white/10 group-hover:border-transparent transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                    <FileText size={18} />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="font-outfit text-[11px] font-black text-white uppercase tracking-wider">Generate AI Report</span>
+                    <span className="font-mono text-[7px] text-gray-500 uppercase font-bold tracking-widest">Enterprise_Ready</span>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-gray-600 group-hover:translate-x-1 group-hover:text-blue-400 transition-all" />
+              </div>
+            </button>
+          </section>
+
           <section>
             <div className="font-mono text-[9px] tracking-[0.25em] text-blue-500/60 uppercase font-black mb-4 px-2">Output Stream</div>
             <div className="grid grid-cols-1 gap-3">
@@ -827,6 +912,150 @@ export default function CameraPage({ telemetry }) {
           </section>
         </div>
       </div>
+
+      {/* Report Generation Overlay */}
+      {reportState !== "idle" && (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-[#020617]/80 backdrop-blur-2xl animate-in fade-in duration-500">
+          <div className="w-full max-w-xl p-8 relative">
+            {/* Background cinematic pulse */}
+            <div className="absolute inset-0 bg-blue-500/5 rounded-[3rem] blur-3xl animate-pulse" />
+            
+            <div className="relative bg-[#070b14]/90 border border-white/10 rounded-[3rem] p-12 shadow-2xl overflow-hidden">
+              <div className="absolute inset-0 cyber-grid opacity-[0.03]" />
+              
+              {reportState === "generating" && (
+                <div className="flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500">
+                  <div className="relative">
+                    <div className="w-32 h-32 rounded-full border-4 border-blue-500/20 flex items-center justify-center">
+                      <Loader2 className="text-blue-500 animate-spin" size={64} strokeWidth={1} />
+                    </div>
+                    <div className="absolute inset-0 w-32 h-32 rounded-full border-t-4 border-blue-500 animate-spin" />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h3 className="font-outfit text-2xl font-black text-white uppercase tracking-widest animate-pulse">
+                      Synthesizing AI Analysis
+                    </h3>
+                    <div className="flex items-center justify-center gap-3">
+                      <RefreshCw size={14} className="text-blue-500 animate-spin" />
+                      <span className="font-mono text-xs text-blue-400 font-bold uppercase tracking-widest transition-all duration-500">
+                        {reportMessages[reportMessageIndex]}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-full space-y-2">
+                    <div className="flex justify-between font-mono text-[10px] text-gray-500 uppercase font-black tracking-widest">
+                      <span>Inference Progress</span>
+                      <span>{reportProgress}%</span>
+                    </div>
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[2px]">
+                      <div 
+                        className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                        style={{ width: `${reportProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {reportState === "success" && (
+                <div className="flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500">
+                  <div className="w-32 h-32 rounded-full bg-green-500/10 border-4 border-green-500/20 flex items-center justify-center">
+                    <ShieldCheck className="text-green-500" size={64} strokeWidth={1} />
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-outfit text-3xl font-black text-white uppercase tracking-tighter">
+                      Mission Report Ready
+                    </h3>
+                    <p className="font-mono text-xs text-gray-400 uppercase tracking-widest">
+                      AI analysis cycle complete. Intelligence artifact synchronized.
+                    </p>
+                  </div>
+
+                  <div className="w-full grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 border border-white/5 p-5 rounded-3xl text-left">
+                      <span className="block font-mono text-[8px] text-gray-500 uppercase font-black mb-2">Mission ID</span>
+                      <span className="font-outfit text-lg font-black text-white">{reportResult?.mission_id}</span>
+                    </div>
+                    <div className="bg-white/5 border border-white/5 p-5 rounded-3xl text-left">
+                      <span className="block font-mono text-[8px] text-gray-500 uppercase font-black mb-2">Risk Level</span>
+                      <span className={`font-outfit text-lg font-black uppercase ${
+                        reportResult?.risk_level === 'CRITICAL' ? 'text-red-500' : 
+                        reportResult?.risk_level === 'HIGH' ? 'text-orange-500' : 'text-green-500'
+                      }`}>
+                        {reportResult?.risk_level}
+                      </span>
+                    </div>
+                    <div className="col-span-2 bg-white/5 border border-white/5 p-5 rounded-3xl flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400">
+                          <BarChart3 size={20} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-mono text-[8px] text-gray-500 uppercase font-black">Total Detections</span>
+                          <span className="font-outfit text-lg font-black text-white">{reportResult?.detections} Events</span>
+                        </div>
+                      </div>
+                      <AlertTriangle size={20} className={reportResult?.detections > 0 ? "text-orange-500" : "text-gray-800"} />
+                    </div>
+                  </div>
+
+                  <div className="w-full flex gap-4">
+                    <button
+                      onClick={() => setReportState("idle")}
+                      className="flex-1 py-4 px-6 rounded-2xl border border-white/10 font-mono text-xs font-black text-gray-400 uppercase tracking-widest hover:bg-white/5 transition-all"
+                    >
+                      Close HUD
+                    </button>
+                    <a
+                      href={reportResult?.download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-[2] py-4 px-6 bg-blue-600 rounded-2xl font-mono text-xs font-black text-white uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-500 hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all animate-bounce"
+                    >
+                      <Download size={18} />
+                      Download Report
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {reportState === "error" && (
+                <div className="flex flex-col items-center text-center space-y-8 animate-in zoom-in-95 duration-500">
+                  <div className="w-24 h-24 rounded-full bg-red-500/10 border-4 border-red-500/20 flex items-center justify-center">
+                    <AlertCircle className="text-red-500" size={48} />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="font-outfit text-2xl font-black text-white uppercase tracking-widest">
+                      Synthesis Failed
+                    </h3>
+                    <p className="font-mono text-xs text-red-400 uppercase tracking-widest">
+                      {reportError || "AI connection timeout or inference error."}
+                    </p>
+                  </div>
+                  <div className="flex gap-4 w-full">
+                    <button
+                      onClick={() => setReportState("idle")}
+                      className="flex-1 py-4 border border-white/10 rounded-2xl font-mono text-xs text-gray-500 uppercase font-black"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGenerateReport}
+                      className="flex-1 py-4 bg-red-600 rounded-2xl font-mono text-xs text-white uppercase font-black"
+                    >
+                      Retry Cycle
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+}

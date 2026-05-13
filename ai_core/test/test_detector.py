@@ -1,18 +1,11 @@
 import cv2
-from ai_core.detectors.human_detector import HumanDetector
 
-# load image (use FULL path for now to avoid path confusion)
-image_path = r"C:\Users\Krish\Downloads\test.jpg"
+from ai_core.detectors.infrastructure_detector import InfrastructureDetector
 
-frame = cv2.imread(image_path)
+detector = InfrastructureDetector()
 
-if frame is None:
-    print("❌ Failed to load image")
-    exit()
+image = cv2.imread("concrete_crack.jpg")
 
-detector = HumanDetector()
+detections = detector.detect(image)
 
-result = detector.detect(frame)
-
-print("Mode:", result.mode)
-print("Detections:", result.detections)
+print(detections)
