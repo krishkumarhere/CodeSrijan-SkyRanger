@@ -148,21 +148,21 @@ export default function MissionPage({ telemetry }) {
       <div className="absolute inset-0 cyber-grid opacity-[0.03] pointer-events-none" />
 
       {/* 1. TOP TELEMETRY STRIP */}
-      <div className="h-16 bg-[#070b14]/80 border-b border-blue-500/10 flex items-center px-6 gap-8 z-[1000] backdrop-blur-xl">
-        <div className="flex items-center gap-3 pr-8 border-r border-white/5">
+      <div className="h-auto sm:h-16 bg-[#070b14]/80 border-b border-blue-500/10 flex flex-col sm:flex-row items-center px-4 sm:px-6 py-3 sm:py-0 gap-3 sm:gap-8 z-[1000] backdrop-blur-xl">
+        <div className="flex items-center gap-3 sm:pr-8 sm:border-r border-white/5 w-full sm:w-auto">
           <div className={`w-2 h-2 rounded-full ${dronePos.armed ? "bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]" : "bg-white/20"}`} />
           <div className="flex flex-col">
-            <span className="font-mono text-[8px] text-gray-500 uppercase tracking-widest leading-none">System_Link</span>
-            <span className="font-outfit text-sm font-black text-white uppercase tracking-wider">{dronePos.armed ? "ARMED" : "DISARMED"}</span>
+            <span className="font-mono text-[7px] sm:text-[8px] text-gray-500 uppercase tracking-widest leading-none">Status</span>
+            <span className="font-outfit text-xs sm:text-sm font-black text-white uppercase tracking-wider">{dronePos.armed ? "ARMED" : "DISARMED"}</span>
           </div>
         </div>
 
-        <div className="flex flex-1 items-center gap-10 overflow-x-auto no-scrollbar">
-          <TelemetryItem icon={Zap} label="Battery" value={dronePos.battery} unit="%" color="green" />
+        <div className="flex flex-1 items-center gap-4 sm:gap-10 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 sm:pb-0">
+          <TelemetryItem icon={Zap} label="Bat" value={dronePos.battery} unit="%" color="green" />
           <TelemetryItem icon={Satellite} label="GPS" value={dronePos.satellites} unit="SAT" color="blue" />
-          <TelemetryItem icon={ArrowUpRight} label="Altitude" value={dronePos.alt} unit="M" color="blue" />
-          <TelemetryItem icon={Wind} label="Speed" value={dronePos.speed} unit="M/S" color="amber" />
-          <TelemetryItem icon={Navigation} label="Heading" value={dronePos.heading} unit="°" color="blue" />
+          <TelemetryItem icon={ArrowUpRight} label="Alt" value={dronePos.alt} unit="M" color="blue" />
+          <TelemetryItem icon={Wind} label="Spd" value={dronePos.speed} unit="M/S" color="amber" />
+          <TelemetryItem icon={Navigation} label="Hdg" value={dronePos.heading} unit="°" color="blue" />
           <TelemetryItem icon={Target} label="Mode" value={dronePos.mode} unit="" color={missionStatus.is_autonomous ? "green" : "blue"} />
         </div>
 
@@ -176,9 +176,9 @@ export default function MissionPage({ telemetry }) {
         </div>
       </div>
 
-      <div className="flex-1 flex relative">
+      <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         {/* 2. MAIN MAP AREA */}
-        <div className="flex-1 relative bg-black">
+        <div className="h-[40vh] sm:h-[50vh] lg:h-full lg:flex-1 relative bg-black">
           <MapContainer
             center={[dronePos.lat || 0, dronePos.lon || 0]}
             zoom={18}
@@ -239,11 +239,11 @@ export default function MissionPage({ telemetry }) {
         </div>
 
         {/* 3. MISSION INTELLIGENCE PANEL (RIGHT SIDEBAR) */}
-        <div className="w-[380px] bg-[#070b14]/60 border-l border-blue-500/10 backdrop-blur-2xl flex flex-col z-[2000]">
+        <div className="w-full lg:w-[380px] flex-1 lg:h-full bg-[#070b14]/60 border-t lg:border-t-0 lg:border-l border-blue-500/10 backdrop-blur-2xl flex flex-col z-[2000] overflow-y-auto custom-scrollbar">
 
           {/* Mission Workflow Section */}
-          <div className="p-6 border-b border-white/5 bg-gradient-to-b from-blue-500/5 to-transparent">
-            <div className="font-mono text-[9px] text-blue-500/60 uppercase font-black tracking-[0.25em] mb-4">Mission_Workflow</div>
+          <div className="p-4 sm:p-6 border-b border-white/5 bg-gradient-to-b from-blue-500/5 to-transparent">
+            <div className="font-mono text-[9px] text-blue-500/60 uppercase font-black tracking-[0.25em] mb-3 sm:mb-4">Mission_Workflow</div>
             <div className="grid grid-cols-1 gap-3">
               <button
                 onClick={() => setShowQGCModal(true)}

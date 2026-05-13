@@ -387,10 +387,10 @@ export default function CameraPage({ telemetry }) {
 
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden relative z-10">
         {/* Feed Area - Redesigned HUD Shell */}
-        <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-4 lg:p-8">
+        <div className="h-[45vh] sm:h-[55vh] lg:h-full lg:flex-1 relative bg-black overflow-hidden flex items-center justify-center p-2 sm:p-4 lg:p-8">
           <div
             ref={containerRef}
-            className={`w-full h-full relative rounded-[2.5rem] overflow-hidden border transition-all duration-700 shadow-2xl group/feed ${aiData.state === "DANGER" ? "border-red-500 ring-4 ring-red-500/20" : pipelineStatus === "OFFLINE" ? "border-red-600 ring-4 ring-red-900/20 shadow-[inset_0_0_100px_rgba(220,38,38,0.1)]" : "border-blue-500/20"}`}
+            className={`w-full h-full relative rounded-2xl sm:rounded-[2.5rem] overflow-hidden border transition-all duration-700 shadow-2xl group/feed ${aiData.state === "DANGER" ? "border-red-500 ring-4 ring-red-500/20" : pipelineStatus === "OFFLINE" ? "border-red-600 ring-4 ring-red-900/20 shadow-[inset_0_0_100px_rgba(220,38,38,0.1)]" : "border-blue-500/20"}`}
           >
             {/* Status Alert Overlay */}
             <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
@@ -421,7 +421,7 @@ export default function CameraPage({ telemetry }) {
 
             {/* Tactical FPV PIP Overlay */}
             {!thermalMode && (
-              <div className="absolute bottom-10 right-10 w-64 h-40 z-[40] rounded-2xl overflow-hidden border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.2)] bg-black group/pip animate-in slide-in-from-right-8 duration-700">
+              <div className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 w-32 h-20 sm:w-64 sm:h-40 z-[40] rounded-xl sm:rounded-2xl overflow-hidden border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.2)] bg-black group/pip animate-in slide-in-from-right-8 duration-700">
                 <div className="absolute top-2 left-3 z-[10] flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                   <span className="font-mono text-[8px] text-cyan-400 font-black uppercase tracking-widest">FPV_FEED_LIVE</span>
@@ -455,52 +455,53 @@ export default function CameraPage({ telemetry }) {
 
               {/* HUD Dynamic Data */}
               {showPiStream && (
-                <div className="absolute inset-0 pointer-events-none z-[25] p-10 flex flex-col justify-between">
+                <div className="absolute inset-0 pointer-events-none z-[25] p-4 sm:p-10 flex flex-col justify-between">
                   <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-2">
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col">
-                        <span className="font-mono text-[8px] text-blue-500/60 uppercase font-bold tracking-widest">Altitude_AGL</span>
-                        <span className="font-outfit text-xl font-black text-white">{telemetry?.alt?.toFixed(1) ?? "0.0"} M</span>
+                    <div className="flex flex-col gap-1 sm:gap-2">
+                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl flex flex-col">
+                        <span className="font-mono text-[6px] sm:text-[8px] text-blue-500/60 uppercase font-bold tracking-widest leading-none">Altitude</span>
+                        <span className="font-outfit text-sm sm:text-xl font-black text-white">{telemetry?.alt?.toFixed(1) ?? "0.0"} M</span>
                       </div>
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col">
-                        <span className="font-mono text-[8px] text-amber-500/60 uppercase font-bold tracking-widest">Velocity_VEC</span>
-                        <span className="font-outfit text-xl font-black text-white">{telemetry?.vx?.toFixed(1) ?? "0.0"} M/S</span>
+                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl flex flex-col">
+                        <span className="font-mono text-[6px] sm:text-[8px] text-amber-500/60 uppercase font-bold tracking-widest leading-none">Velocity</span>
+                        <span className="font-outfit text-sm sm:text-xl font-black text-white">{telemetry?.vx?.toFixed(1) ?? "0.0"} M/S</span>
                       </div>
                     </div>
 
                     {/* AI HUD Stats & FPS Meter */}
-                    <div className="flex flex-col items-center gap-2">
-                      <div className={`px-6 py-2 rounded-2xl border backdrop-blur-xl font-mono text-xs font-black tracking-[0.2em] animate-in slide-in-from-top-4 duration-500 ${infrastructureMode ? (infraAiData.status === "online" ? "text-cyan-400 border-cyan-500/40 bg-cyan-500/10" : "text-red-500 border-red-500 bg-red-500/10") : powerlineMode ? "text-purple-400 border-purple-500/40 bg-purple-500/10" : getRiskColor(aiData.state)}`}>
-                        {infrastructureMode ? (infraAiData.status === "online" ? "INFRASTRUCTURE_ACTIVE" : "AI_LINK_LOST") : powerlineMode ? "POWERLINE_INSPECTION_ACTIVE" : `AI_STATE: ${aiData.state}`}
+                    <div className="flex flex-col items-center gap-1 sm:gap-2">
+                      <div className={`px-3 py-1 sm:px-6 sm:py-2 rounded-lg sm:rounded-2xl border backdrop-blur-xl font-mono text-[8px] sm:text-xs font-black tracking-widest sm:tracking-[0.2em] animate-in slide-in-from-top-4 duration-500 ${infrastructureMode ? (infraAiData.status === "online" ? "text-cyan-400 border-cyan-500/40 bg-cyan-500/10" : "text-red-500 border-red-500 bg-red-500/10") : powerlineMode ? "text-purple-400 border-purple-500/40 bg-purple-500/10" : getRiskColor(aiData.state)}`}>
+                        {infrastructureMode ? (infraAiData.status === "online" ? "INFRA_ACTIVE" : "AI_LOST") : powerlineMode ? "GRID_ACTIVE" : aiData.state}
                       </div>
-                      <div className="bg-black/60 border border-white/5 px-3 py-1 rounded-xl font-mono text-[9px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                        <Activity size={10} className="animate-pulse" />
-                        AI_LATENCY: {infrastructureMode ? (infraAiData.status === "online" ? "42ms" : "---") : `${aiData.fps} FPS`}
+                      <div className="bg-black/60 border border-white/5 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg sm:rounded-xl font-mono text-[6px] sm:text-[9px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-1 sm:gap-2">
+                        <Activity size={8} className="animate-pulse lg:hidden" />
+                        <Activity size={10} className="animate-pulse hidden lg:block" />
+                        {infrastructureMode ? (infraAiData.status === "online" ? "42ms" : "---") : `${aiData.fps} FPS`}
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2 text-right">
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col">
-                        <span className="font-mono text-[8px] text-gray-500 uppercase font-bold tracking-widest">Temporal_ID</span>
-                        <span className="font-mono text-xs font-black text-white uppercase">{time.toLocaleTimeString([], { hour12: false })}</span>
+                    <div className="flex flex-col items-end gap-1 sm:gap-2 text-right">
+                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl flex flex-col">
+                        <span className="font-mono text-[6px] sm:text-[8px] text-gray-500 uppercase font-bold tracking-widest leading-none">Clock</span>
+                        <span className="font-mono text-[8px] sm:text-xs font-black text-white uppercase">{time.toLocaleTimeString([], { hour12: false })}</span>
                       </div>
-                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl flex flex-col items-end">
-                        <span className="font-mono text-[8px] text-green-500/60 uppercase font-bold tracking-widest">Link_Quality</span>
-                        <span className="font-mono text-xs font-black text-green-500 uppercase tracking-widest">98.5% STABLE</span>
+                      <div className="bg-[#070b14]/90 backdrop-blur-md border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl flex flex-col items-end">
+                        <span className="font-mono text-[6px] sm:text-[8px] text-green-500/60 uppercase font-bold tracking-widest leading-none">Link</span>
+                        <span className="font-mono text-[8px] sm:text-xs font-black text-green-500 uppercase tracking-widest">STABLE</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex justify-between items-end">
-                    <div className="flex flex-col gap-2">
-                      <div className={`flex items-center gap-3 border px-4 py-2 rounded-2xl backdrop-blur-md transition-all ${infrastructureMode ? "bg-cyan-500/20 border-cyan-500/30" : powerlineMode ? "bg-purple-500/20 border-purple-500/30" : (aiData.state === "DANGER" ? "bg-red-600 border-red-500 animate-pulse shadow-[0_0_20px_#ef4444]" : "bg-blue-500/20 border-blue-500/30")}`}>
-                        <div className={`w-2 h-2 rounded-full ${infrastructureMode ? "bg-cyan-400 shadow-[0_0_10px_#22d3ee]" : powerlineMode ? "bg-purple-400 shadow-[0_0_10px_#a855f7]" : (aiData.state === "DANGER" ? "bg-white" : "bg-blue-500 shadow-[0_0_10px_#3b82f6]")}`} />
-                        <span className="font-mono text-[10px] font-black text-white tracking-[0.2em] uppercase">
-                          {infrastructureMode ? "INFRASTRUCTURE_INSPECTION_ACTIVE" : powerlineMode ? "POWERLINE_INSPECTION_ACTIVE" : "AI_SURVEILLANCE_ACTIVE"}
+                    <div className="flex flex-col gap-1 sm:gap-2">
+                      <div className={`flex items-center gap-1.5 sm:gap-3 border px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl backdrop-blur-md transition-all ${infrastructureMode ? "bg-cyan-500/20 border-cyan-500/30" : powerlineMode ? "bg-purple-500/20 border-purple-500/30" : (aiData.state === "DANGER" ? "bg-red-600 border-red-500 animate-pulse shadow-[0_0_20px_#ef4444]" : "bg-blue-500/20 border-blue-500/30")}`}>
+                        <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${infrastructureMode ? "bg-cyan-400 shadow-[0_0_10px_#22d3ee]" : powerlineMode ? "bg-purple-400 shadow-[0_0_10px_#a855f7]" : (aiData.state === "DANGER" ? "bg-white" : "bg-blue-500 shadow-[0_0_10px_#3b82f6]")}`} />
+                        <span className="font-mono text-[7px] sm:text-[10px] font-black text-white tracking-widest sm:tracking-[0.2em] uppercase">
+                          {infrastructureMode ? "INFRA_ACTIVE" : powerlineMode ? "GRID_ACTIVE" : "AI_SURVEILLANCE"}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 bg-black/60 border border-white/5 px-6 py-2 rounded-full backdrop-blur-sm">
+                    <div className="hidden sm:flex items-center gap-4 bg-black/60 border border-white/5 px-6 py-2 rounded-full backdrop-blur-sm">
                       <div className="flex items-center gap-2">
                         <Cpu size={12} className="text-blue-500" />
                         <span className="font-mono text-[9px] text-gray-400 font-bold uppercase tracking-widest">{infrastructureMode ? "REMOTE_AI_NODE" : powerlineMode ? "POWERLINE_CORE" : "SONY_IMX708"}</span>
@@ -640,10 +641,10 @@ export default function CameraPage({ telemetry }) {
 
             {/* Error Overlay */}
             {showError && (
-              <div className="absolute inset-0 z-[40] bg-[#020617] flex flex-col items-center justify-center gap-6">
-                <div className="font-outfit text-5xl font-black text-gray-800 tracking-[0.2em] opacity-30 italic">NO SIGNAL</div>
-                <div className="flex flex-col items-center gap-4">
-                  <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">Primary video downlink severed</span>
+              <div className="absolute inset-0 z-[40] bg-[#020617] flex flex-col items-center justify-center gap-4 sm:gap-6">
+                <div className="font-outfit text-3xl sm:text-5xl font-black text-gray-800 tracking-widest sm:tracking-[0.2em] opacity-30 italic">NO SIGNAL</div>
+                <div className="flex flex-col items-center gap-2 sm:gap-4">
+                  <span className="font-mono text-[8px] sm:text-xs text-gray-500 uppercase tracking-widest">Primary video downlink severed</span>
                 </div>
               </div>
             )}
@@ -651,7 +652,7 @@ export default function CameraPage({ telemetry }) {
         </div>
 
         {/* Sidebar - Cleaned Up */}
-        <div className="w-full lg:w-[320px] xl:w-[360px] h-auto lg:h-full bg-[#070b14]/60 border-l border-blue-500/10 overflow-y-auto custom-scrollbar p-8 flex flex-col gap-10 backdrop-blur-xl relative">
+        <div className="w-full lg:w-[320px] xl:w-[360px] flex-1 lg:h-full bg-[#070b14]/60 border-t lg:border-t-0 lg:border-l border-blue-500/10 overflow-y-auto custom-scrollbar p-6 sm:p-8 flex flex-col gap-6 sm:gap-10 backdrop-blur-xl relative">
           <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
 
           {/* AI Mode Controls */}

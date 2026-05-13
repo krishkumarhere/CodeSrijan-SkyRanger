@@ -53,44 +53,44 @@ function SensorDetail({ sensor, history, onClose }) {
   const label = { temperature: "Core Temperature", humidity: "Environmental Humidity", vibration: "Vibration Impulse", pir: "Proximity Alert" }[sensor]
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#020617]/95 backdrop-blur-2xl flex flex-col p-6 sm:p-12 animate-in fade-in zoom-in-95 duration-500 relative">
+    <div className="fixed inset-0 z-[100] bg-[#020617]/95 backdrop-blur-2xl flex flex-col p-4 sm:p-12 animate-in fade-in zoom-in-95 duration-500 relative">
       <div className="absolute inset-0 cyber-grid opacity-[0.03] pointer-events-none" />
       
       <header className="flex items-center justify-between mb-12 relative z-10">
-        <div className="flex items-center gap-5">
-          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-400">
-            <Activity size={24} />
+        <div className="flex items-center gap-3 sm:gap-5">
+          <div className="p-2 sm:p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl sm:rounded-2xl text-blue-400">
+            <Activity size={20} className="sm:w-6 sm:h-6" />
           </div>
           <div>
             <h2 className="font-outfit text-3xl font-black text-white tracking-tight uppercase leading-none">{label}</h2>
             <div className="font-mono text-[10px] text-blue-500/60 uppercase tracking-[0.3em] mt-2 font-bold italic">Operational_Telemetry_Stream_ID: {sensor.toUpperCase()}</div>
           </div>
         </div>
-        <button className="p-4 bg-white/5 border border-white/10 rounded-2xl text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-all group" onClick={onClose}>
-          <X size={24} className="group-hover:rotate-90 transition-transform" />
+        <button className="p-2 sm:p-4 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-all group" onClick={onClose}>
+          <X size={20} className="sm:w-6 sm:h-6 group-hover:rotate-90 transition-transform" />
         </button>
       </header>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12 relative z-10">
-        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
-          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">AVERAGE_MAGNITUDE</span>
-          <span className="font-outfit text-4xl font-black text-blue-400">{chartData.length ? (chartData.reduce((s, d) => s + (d.value ?? 0), 0) / chartData.length).toFixed(1) : "—"}</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-12 relative z-10">
+        <div className="bg-[#070b14]/60 p-4 sm:p-8 rounded-2xl sm:rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+          <span className="block font-mono text-[7px] sm:text-[9px] text-gray-500 uppercase tracking-widest font-black mb-1 sm:mb-3 leading-none">AVERAGE</span>
+          <span className="font-outfit text-xl sm:text-4xl font-black text-blue-400">{chartData.length ? (chartData.reduce((s, d) => s + (d.value ?? 0), 0) / chartData.length).toFixed(1) : "—"}</span>
         </div>
-        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
-          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">PEAK_THRESHOLD</span>
-          <span className="font-outfit text-4xl font-black text-white">{chartData.length ? Math.max(...chartData.map(d => d.value ?? 0)).toFixed(1) : "—"}</span>
+        <div className="bg-[#070b14]/60 p-4 sm:p-8 rounded-2xl sm:rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+          <span className="block font-mono text-[7px] sm:text-[9px] text-gray-500 uppercase tracking-widest font-black mb-1 sm:mb-3 leading-none">PEAK</span>
+          <span className="font-outfit text-xl sm:text-4xl font-black text-white">{chartData.length ? Math.max(...chartData.map(d => d.value ?? 0)).toFixed(1) : "—"}</span>
         </div>
-        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
-          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">PACKET_COUNT</span>
-          <span className="font-outfit text-4xl font-black text-white">{chartData.length}</span>
+        <div className="bg-[#070b14]/60 p-4 sm:p-8 rounded-2xl sm:rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+          <span className="block font-mono text-[7px] sm:text-[9px] text-gray-500 uppercase tracking-widest font-black mb-1 sm:mb-3 leading-none">PACKETS</span>
+          <span className="font-outfit text-xl sm:text-4xl font-black text-white">{chartData.length}</span>
         </div>
-        <div className="bg-[#070b14]/60 p-8 rounded-[2.5rem] border border-green-500/20 backdrop-blur-xl">
-          <span className="block font-mono text-[9px] text-gray-500 uppercase tracking-widest font-black mb-3">SIGNAL_HEALTH</span>
-          <span className="font-outfit text-4xl font-black text-green-500 uppercase tracking-tight">OPTIMAL</span>
+        <div className="bg-[#070b14]/60 p-4 sm:p-8 rounded-2xl sm:rounded-[2.5rem] border border-green-500/20 backdrop-blur-xl">
+          <span className="block font-mono text-[7px] sm:text-[9px] text-gray-500 uppercase tracking-widest font-black mb-1 sm:mb-3 leading-none">HEALTH</span>
+          <span className="font-outfit text-xl sm:text-4xl font-black text-green-500 uppercase tracking-tight">OPTIMAL</span>
         </div>
       </div>
 
-      <div className="flex-1 bg-black/40 border border-blue-500/10 rounded-[3rem] p-10 min-h-0 relative z-10 group overflow-hidden">
+      <div className="flex-1 bg-black/40 border border-blue-500/10 rounded-2xl sm:rounded-[3rem] p-4 sm:p-10 min-h-0 relative z-10 group overflow-hidden">
         <div className="absolute top-8 left-8 w-12 h-12 border-t-2 border-l-2 border-blue-500/20" />
         <div className="absolute top-8 right-8 w-12 h-12 border-t-2 border-r-2 border-blue-500/20" />
         <div className="absolute bottom-8 left-8 w-12 h-12 border-b-2 border-l-2 border-blue-500/20" />
@@ -224,29 +224,29 @@ export default function SensorPage() {
       <BusSidebar sensors={sensors} connected={connected} />
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative z-10">
-        <header className="p-8 lg:px-12 border-b border-white/[0.03] flex items-center justify-between backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-400">
-              <Zap size={20} />
+        <header className="p-4 sm:p-8 lg:px-12 border-b border-white/[0.03] flex items-center justify-between backdrop-blur-md">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl sm:rounded-2xl text-blue-400">
+              <Zap size={16} className="sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h1 className="font-outfit text-2xl font-black text-white tracking-tight uppercase leading-none">Sensor Matrix</h1>
-              <div className="font-mono text-[9px] text-blue-500/60 uppercase font-bold tracking-[0.25em] mt-1.5 font-italic">Live_Data_Synthesis_Unit_7</div>
+              <h1 className="font-outfit text-lg sm:text-2xl font-black text-white tracking-tight uppercase leading-none">Sensor Matrix</h1>
+              <div className="font-mono text-[7px] sm:text-[9px] text-blue-500/60 uppercase font-bold tracking-widest sm:tracking-[0.25em] mt-1 sm:mt-1.5">Live Synthesis Unit</div>
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
             <div className="hidden sm:flex flex-col items-end">
               <span className="font-mono text-[8px] text-gray-600 uppercase font-black tracking-widest font-bold">Latency</span>
               <span className="font-mono text-xs font-black text-blue-500/80 tracking-widest">12.4 MS</span>
             </div>
-            <div className="bg-black/40 border border-white/5 px-5 py-2.5 rounded-2xl flex items-center gap-3">
+            <div className="bg-black/40 border border-white/5 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-3">
               <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500 shadow-[0_0_8px_#10b981]" : "bg-red-500 animate-pulse"}`} />
-              <span className="font-mono text-[10px] font-black text-gray-400 tracking-widest uppercase">{connected ? "STREAM_SYNCHRONIZED" : "LINK_FAULT"}</span>
+              <span className="font-mono text-[8px] sm:text-[10px] font-black text-gray-400 tracking-widest uppercase">{connected ? "SYNCED" : "FAULT"}</span>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 lg:p-12 space-y-10">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 lg:p-12 space-y-6 sm:space-y-10">
           
           {/* Active Alerts HUD */}
           {(sensors.vib_alarm || sensors.pir_alarm) && (
@@ -273,21 +273,21 @@ export default function SensorPage() {
           )}
 
           {/* Aggregate Telemetry Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
             {[
               { label: "Avg Temp", val: stats.temp_avg, unit: "°C" },
               { label: "Max Temp", val: stats.temp_max, unit: "°C" },
               { label: "Humidity", val: stats.humidity_avg, unit: "%" },
-              { label: "Vibe Hist", val: stats.vibration_events, unit: "" },
-              { label: "PIR Hist", val: stats.pir_events, unit: "" },
+              { label: "Vibe", val: stats.vibration_events, unit: "" },
+              { label: "PIR", val: stats.pir_events, unit: "" },
               { label: "Alarms", val: stats.alarm_events, unit: "", warn: (stats.alarm_events > 0) },
-              { label: "Readings", val: stats.total_readings, unit: "" },
+              { label: "Packets", val: stats.total_readings, unit: "" },
             ].map((s, i) => (
-              <div key={i} className={`bg-[#070b14]/60 border p-5 rounded-2xl flex flex-col gap-2 transition-all hover:bg-white/5 ${s.warn ? "border-red-500/20" : "border-white/5"}`}>
-                <span className="font-mono text-[8px] text-gray-500 uppercase tracking-widest font-bold">{s.label}</span>
+              <div key={i} className={`bg-[#070b14]/60 border p-3 sm:p-5 rounded-xl sm:rounded-2xl flex flex-col gap-1 sm:gap-2 transition-all hover:bg-white/5 ${s.warn ? "border-red-500/20" : "border-white/5"}`}>
+                <span className="font-mono text-[6px] sm:text-[8px] text-gray-500 uppercase tracking-widest font-bold leading-none">{s.label}</span>
                 <div className="flex items-baseline gap-1">
-                  <span className={`font-outfit text-xl font-black ${s.warn ? "text-red-500" : "text-white"}`}>{s.val ?? "0"}</span>
-                  <span className="font-mono text-[8px] text-gray-600 font-bold uppercase">{s.unit}</span>
+                  <span className={`font-outfit text-sm sm:text-xl font-black ${s.warn ? "text-red-500" : "text-white"}`}>{s.val ?? "0"}</span>
+                  <span className="font-mono text-[6px] sm:text-[8px] text-gray-600 font-bold uppercase">{s.unit}</span>
                 </div>
               </div>
             ))}
@@ -297,26 +297,26 @@ export default function SensorPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             
             {/* Temperature Tile */}
-            <div className="group bg-[#070b14]/60 border border-blue-500/10 p-8 rounded-[3rem] shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer backdrop-blur-xl relative overflow-hidden" onClick={() => setDetail("temperature")}>
+            <div className="group bg-[#070b14]/60 border border-blue-500/10 p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer backdrop-blur-xl relative overflow-hidden" onClick={() => setDetail("temperature")}>
               <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                <Thermometer size={120} strokeWidth={1} />
+                <Thermometer size={100} className="sm:w-[120px] sm:h-[120px]" strokeWidth={1} />
               </div>
-              <div className="flex items-center justify-between mb-8 relative z-10">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform"><Thermometer size={20} /></div>
-                  <span className="font-mono text-[10px] font-black text-gray-500 uppercase tracking-widest">Thermal_Core</span>
+              <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform"><Thermometer size={16} className="sm:w-5 sm:h-5" /></div>
+                  <span className="font-mono text-[8px] sm:text-[10px] font-black text-gray-500 uppercase tracking-widest">Thermal_Core</span>
                 </div>
-                <span className="font-mono text-[8px] text-gray-600 uppercase border border-white/10 px-2 py-0.5 rounded-lg font-bold tracking-widest">IO_4</span>
+                <span className="font-mono text-[7px] sm:text-[8px] text-gray-600 uppercase border border-white/10 px-2 py-0.5 rounded-lg font-bold tracking-widest">IO_4</span>
               </div>
-              <div className="flex items-baseline gap-3 mb-8 relative z-10">
-                <span className="font-outfit text-6xl font-black text-white leading-none tracking-tighter">{sensors.temperature ?? "—"}</span>
-                <span className="font-outfit text-2xl font-black text-gray-600 uppercase">Celsius</span>
+              <div className="flex items-baseline gap-2 sm:gap-3 mb-6 sm:mb-8 relative z-10">
+                <span className="font-outfit text-4xl sm:text-6xl font-black text-white leading-none tracking-tighter">{sensors.temperature ?? "—"}</span>
+                <span className="font-outfit text-lg sm:text-2xl font-black text-gray-600 uppercase">°C</span>
               </div>
               <Sparkline data={tempSpark} color="#f59e0b" />
-              <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center relative z-10 group/btn">
-                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-gray-500 font-black">View Temporal Log</span>
-                <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 transition-all group-hover/btn:bg-amber-500 group-hover/btn:text-white group-hover/btn:shadow-[0_0_15px_#f59e0b]">
-                  <Activity size={14} />
+              <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-white/5 flex justify-between items-center relative z-10 group/btn">
+                <span className="font-mono text-[8px] sm:text-[9px] uppercase tracking-[0.2em] text-gray-500 font-black">View History</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 transition-all group-hover/btn:bg-amber-500 group-hover/btn:text-white group-hover/btn:shadow-[0_0_15px_#f59e0b]">
+                  <Activity size={12} className="sm:w-3.5 sm:h-3.5" />
                 </div>
               </div>
             </div>

@@ -71,16 +71,16 @@ function HardwareTile({ title, icon: Icon, specs, color = "blue" }) {
         <Icon size={80} strokeWidth={1} />
       </div>
       <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
-          <Icon size={18} />
+        <div className="p-2 sm:p-2.5 bg-blue-500/10 rounded-lg sm:rounded-xl border border-blue-500/20 text-blue-400">
+          <Icon size={14} className="sm:w-4.5 sm:h-4.5" />
         </div>
-        <h3 className="font-outfit text-sm font-black tracking-widest text-white uppercase">{title}</h3>
+        <h3 className="font-outfit text-xs sm:text-sm font-black tracking-widest text-white uppercase">{title}</h3>
       </div>
-      <div className="space-y-3 relative z-10">
+      <div className="space-y-2 sm:space-y-3 relative z-10">
         {specs.map(([key, val, cls]) => (
-          <div key={key} className="flex justify-between items-center py-2 border-b border-white/[0.03] last:border-0 group/row">
-            <span className="font-mono text-[9px] text-gray-500 uppercase font-bold tracking-widest group-hover/row:text-gray-400 transition-colors">{key}</span>
-            <span className={`font-mono text-[10px] font-black ${cls === 'accent' ? 'text-blue-400' : cls === 'amber' ? 'text-amber-500' : cls === 'green' ? 'text-green-400' : cls === 'red' ? 'text-red-500' : 'text-gray-300'}`}>{val}</span>
+          <div key={key} className="flex justify-between items-center py-1.5 sm:py-2 border-b border-white/[0.03] last:border-0 group/row">
+            <span className="font-mono text-[7px] sm:text-[9px] text-gray-500 uppercase font-bold tracking-widest group-hover/row:text-gray-400 transition-colors">{key}</span>
+            <span className={`font-mono text-[8px] sm:text-[10px] font-black ${cls === 'accent' ? 'text-blue-400' : cls === 'amber' ? 'text-amber-500' : cls === 'green' ? 'text-green-400' : cls === 'red' ? 'text-red-500' : 'text-gray-300'}`}>{val}</span>
           </div>
         ))}
       </div>
@@ -130,7 +130,7 @@ export default function SystemPage() {
       <div className="absolute inset-0 cyber-grid opacity-[0.03] pointer-events-none" />
 
       {/* Side Navigation HUD */}
-      <nav className="flex lg:flex-col shrink-0 border-b lg:border-b-0 lg:border-r border-blue-500/10 bg-[#070b14]/60 backdrop-blur-xl overflow-x-auto lg:overflow-y-auto no-scrollbar py-4 lg:py-8 px-4 lg:w-64 z-20">
+      <nav className="flex lg:flex-col shrink-0 border-b lg:border-b-0 lg:border-r border-blue-500/10 bg-[#070b14]/60 backdrop-blur-xl overflow-x-auto lg:overflow-y-auto no-scrollbar py-2 sm:py-4 lg:py-8 px-4 lg:w-64 z-20">
         <div className="hidden lg:block font-mono text-[9px] tracking-[0.3em] text-blue-500/60 uppercase font-black mb-8 px-4">System Topology</div>
         <div className="flex lg:flex-col gap-2">
           {NAV_ITEMS.map(item => {
@@ -140,12 +140,12 @@ export default function SystemPage() {
               <button
                 key={item.id}
                 onClick={() => setActive(item.id)}
-                className={`flex items-center gap-4 px-4 py-3 rounded-2xl border transition-all duration-500 group ${isActive ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[0_0_20px_rgba(59,130,246,0.1)]" : "border-transparent text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
+                className={`flex items-center gap-2 sm:gap-4 px-3 py-2 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl border transition-all duration-500 group whitespace-nowrap ${isActive ? "bg-blue-600/10 border-blue-500/30 text-white shadow-[0_0_20px_rgba(59,130,246,0.1)]" : "border-transparent text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
               >
-                <div className={`p-1.5 rounded-lg transition-colors ${isActive ? "bg-blue-500/20 text-blue-400" : "bg-transparent text-gray-600 group-hover:text-gray-400"}`}>
-                  <Icon size={16} />
+                <div className={`p-1 rounded-md sm:p-1.5 sm:rounded-lg transition-colors ${isActive ? "bg-blue-500/20 text-blue-400" : "bg-transparent text-gray-600 group-hover:text-gray-400"}`}>
+                  <Icon size={14} className="sm:w-4 sm:h-4" />
                 </div>
-                <span className="font-mono text-[10px] font-black tracking-widest uppercase">{item.label}</span>
+                <span className="font-mono text-[8px] sm:text-[10px] font-black tracking-widest uppercase">{item.label}</span>
               </button>
             )
           })}
@@ -154,37 +154,37 @@ export default function SystemPage() {
 
       {/* Main Command View */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative z-10">
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between p-6 lg:p-8 border-b border-white/[0.03] gap-4">
-          <div className="flex items-center gap-5">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 lg:p-8 border-b border-white/[0.03] gap-4">
+          <div className="flex items-center gap-3 sm:gap-5">
             <div className="relative group">
-              <div className="absolute inset-0 bg-blue-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity animate-pulse-soft" />
-              <div className="relative p-4 bg-blue-600/10 border border-blue-500/30 rounded-[1.25rem] text-blue-400">
-                {active === "overview" ? <Activity size={24} /> : <Server size={24} />}
+              <div className="absolute inset-0 bg-blue-500/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity animate-pulse-soft" />
+              <div className="relative p-3 sm:p-4 bg-blue-600/10 border border-blue-500/30 rounded-xl sm:rounded-[1.25rem] text-blue-400">
+                {active === "overview" ? <Activity size={18} className="sm:w-6 sm:h-6" /> : <Server size={18} className="sm:w-6 sm:h-6" />}
               </div>
             </div>
             <div>
-              <h2 className="font-outfit text-2xl font-black text-white tracking-tight uppercase leading-none">{active} INTERFACE</h2>
-              <div className="flex items-center gap-2 mt-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-blue-500 shadow-[0_0_10px_#3b82f6]" : "bg-red-500"} animate-pulse`} />
-                <span className="font-mono text-[9px] text-gray-500 uppercase tracking-[0.2em] font-black">{connected ? "Operational Status: High" : "Diagnostic Mode: Critical"}</span>
+              <h2 className="font-outfit text-lg sm:text-2xl font-black text-white tracking-tight uppercase leading-none">{active}</h2>
+              <div className="flex items-center gap-2 mt-1 sm:mt-2">
+                <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${connected ? "bg-blue-500 shadow-[0_0_10px_#3b82f6]" : "bg-red-500"} animate-pulse`} />
+                <span className="font-mono text-[7px] sm:text-[9px] text-gray-500 uppercase tracking-widest font-black">{connected ? "Operational" : "Diagnostic Mode"}</span>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="font-mono text-[8px] text-gray-600 uppercase font-black tracking-widest">Network Load</span>
-              <span className="font-mono text-xs font-black text-blue-500/80">421.4 KB/S</span>
+              <span className="font-mono text-[8px] text-gray-600 uppercase font-black tracking-widest leading-none">Net Load</span>
+              <span className="font-mono text-xs font-black text-blue-500/80">421 KB/S</span>
             </div>
-            <div className="h-8 w-px bg-white/5 hidden sm:block" />
-            <div className="bg-black/40 border border-white/5 px-5 py-2.5 rounded-2xl flex items-center gap-4">
-              <Network size={14} className="text-gray-500" />
-              <span className="font-mono text-[10px] font-black text-gray-400 tracking-widest uppercase">{connected ? "ACTIVE_LINK" : "NODE_LOST"}</span>
+            <div className="h-6 sm:h-8 w-px bg-white/5 hidden sm:block" />
+            <div className="bg-black/40 border border-white/5 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
+              <Network size={12} className="text-gray-500 lg:w-3.5 lg:h-3.5" />
+              <span className="font-mono text-[8px] sm:text-[10px] font-black text-gray-400 tracking-widest uppercase">{connected ? "ACTIVE" : "OFFLINE"}</span>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8 space-y-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
           {sys.alerts?.length > 0 && (
             <div className="space-y-3">
               {sys.alerts.map((a, i) => (
@@ -199,22 +199,22 @@ export default function SystemPage() {
           {active === "overview" && (
             <div className="space-y-10 animate-in fade-in duration-700">
               {/* Performance HUD */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col gap-6 backdrop-blur-xl relative overflow-hidden group">
-                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em]">CORE LOAD</span><Cpu size={16} className="text-blue-500/50" /></div>
-                  <StatBar label="System Usage" value={sys.cpu_usage} color="#3b82f6" />
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] flex flex-col gap-4 sm:gap-6 backdrop-blur-xl relative overflow-hidden group">
+                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[8px] sm:text-[9px] text-gray-500 uppercase font-black tracking-widest sm:tracking-[0.25em]">CORE LOAD</span><Cpu size={14} className="text-blue-500/50 sm:w-4 sm:h-4" /></div>
+                  <StatBar label="CPU" value={sys.cpu_usage} color="#3b82f6" />
                 </div>
-                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col gap-6 backdrop-blur-xl relative overflow-hidden group">
-                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em]">MEMORY POOL</span><Activity size={16} className="text-purple-500/50" /></div>
-                  <StatBar label="RAM Distribution" value={sys.ram_percent} color="#8b5cf6" />
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] flex flex-col gap-4 sm:gap-6 backdrop-blur-xl relative overflow-hidden group">
+                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[8px] sm:text-[9px] text-gray-500 uppercase font-black tracking-widest sm:tracking-[0.25em]">MEMORY</span><Activity size={14} className="text-purple-500/50 sm:w-4 sm:h-4" /></div>
+                  <StatBar label="RAM" value={sys.ram_percent} color="#8b5cf6" />
                 </div>
-                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col items-center justify-center backdrop-blur-xl group">
-                  <span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em] mb-4 self-start">THERMAL UNIT</span>
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] flex flex-col items-center justify-center backdrop-blur-xl group">
+                  <span className="font-mono text-[8px] sm:text-[9px] text-gray-500 uppercase font-black tracking-widest sm:tracking-[0.25em] mb-2 sm:mb-4 self-start">THERMAL</span>
                   <TempGauge value={sys.cpu_temp} />
                 </div>
-                <div className="bg-[#070b14]/40 border border-blue-500/10 p-8 rounded-[2.5rem] flex flex-col gap-6 backdrop-blur-xl relative overflow-hidden group">
-                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[9px] text-gray-500 uppercase font-black tracking-[0.25em]">STORAGE ARRAY</span><HardDrive size={16} className="text-amber-500/50" /></div>
-                  <StatBar label="Volume Status" value={sys.disk_percent} color="#f59e0b" />
+                <div className="bg-[#070b14]/40 border border-blue-500/10 p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] flex flex-col gap-4 sm:gap-6 backdrop-blur-xl relative overflow-hidden group">
+                  <div className="flex justify-between items-center relative z-10"><span className="font-mono text-[8px] sm:text-[9px] text-gray-500 uppercase font-black tracking-widest sm:tracking-[0.25em]">STORAGE</span><HardDrive size={14} className="text-amber-500/50 sm:w-4 sm:h-4" /></div>
+                  <StatBar label="Disk" value={sys.disk_percent} color="#f59e0b" />
                 </div>
               </div>
 
