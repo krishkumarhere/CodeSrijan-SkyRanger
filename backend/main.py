@@ -11,6 +11,7 @@ from app.routes.system_ws import router as system_router
 from app.core.system_handler import start_system_loop
 from app.routes.mission import router as mission_router
 from app.routes.ai import router as ai_router
+from app.auth.routes import router as auth_router
 
 
 @asynccontextmanager
@@ -44,6 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/api")
 app.include_router(ws_router)
 app.include_router(sensor_router)
 app.include_router(history_router)

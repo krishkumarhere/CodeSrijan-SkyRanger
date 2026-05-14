@@ -9,6 +9,10 @@ import SystemPage from "./SystemPage"
 import MissionPage from "./MissionPage"
 import AboutPage from "./AboutPage"
 import { ResponsiveShell } from "./components/layout/ResponsiveShell"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { ProtectedRoute } from "./auth/ProtectedRoute"
+import { AuthProvider } from "./auth/AuthContext"
+import Login from "./pages/Login"
 
 const emptyTelemetry = {
   armed: null, flight_mode: null,
@@ -169,7 +173,7 @@ function FlightLog({ logs }) {
   )
 }
 
-export default function App() {
+function MainApp() {
   const [telemetry, setTelemetry] = useState(emptyTelemetry)
   const [connected, setConnected] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
@@ -500,5 +504,20 @@ export default function App() {
         <FlightLog logs={logs} />
       </div>
     </ResponsiveShell>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/*" element={<MainApp />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }

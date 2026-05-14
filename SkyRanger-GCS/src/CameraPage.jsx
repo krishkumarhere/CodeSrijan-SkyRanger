@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from "react"
-import { 
-  Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation, 
-  Camera, Database, Save, ChevronRight, Info, CheckCircle, FileText, Download, 
+import {
+  Cpu, Shield, Activity, Target, Clock, AlertCircle, Zap, Radio, Navigation,
+  Camera, Database, Save, ChevronRight, Info, CheckCircle, FileText, Download,
   Loader2, RefreshCw, BarChart3, ShieldCheck, AlertTriangle
 } from "lucide-react"
+import { PermissionGate } from "./auth/PermissionGate"
 
 const THERMAL_FEED_URL = `/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
@@ -36,7 +37,7 @@ export default function CameraPage({ telemetry }) {
   // AI Monitoring System State
   const [pipelineStatus, setPipelineStatus] = useState("INACTIVE") // INACTIVE, INITIALIZING, ONLINE, OFFLINE
   const [lastHeartbeat, setLastHeartbeat] = useState(0)
-  
+
   const containerRef = useRef(null)
 
   // Report Generation States
@@ -109,8 +110,8 @@ export default function CameraPage({ telemetry }) {
 
   // Evidence Acquisition Mock Logic
   useEffect(() => {
-    const hasDetections = infrastructureMode 
-      ? (infraAiData?.detections?.length > 0) 
+    const hasDetections = infrastructureMode
+      ? (infraAiData?.detections?.length > 0)
       : (powerlineMode ? (aiData?.detections?.length > 0) : false);
 
     if ((infrastructureMode || powerlineMode) && snapshotMode && hasDetections) {
@@ -138,7 +139,7 @@ export default function CameraPage({ telemetry }) {
         if (!res.ok) throw new Error("AI Backend Offline")
         const data = await res.json()
         setAiData(data)
-        
+
         // Compute Grid/Edge Pipeline Health
         if (powerlineMode || aiActive) {
           if (data.heartbeat_valid) {
@@ -170,7 +171,7 @@ export default function CameraPage({ telemetry }) {
         const res = await fetch(`http://localhost:9000/detections`)
         const data = await res.json()
         setInfraAiData({ ...data, status: "online" })
-        
+
         // Compute Integrity Pipeline Health
         const ts = typeof data.timestamp === "number" ? data.timestamp * 1000 : new Date(data.timestamp).getTime()
         if (Date.now() - ts < 3000) {
@@ -205,7 +206,7 @@ export default function CameraPage({ telemetry }) {
         if (res.ok) {
           const data = await res.json()
           setServiceOnline(true)
-          
+
           // Only update local state from backend if we aren't in the middle of a toggle
           if (!isToggling) {
             if (typeof data.infrastructure_mode === "boolean") {
@@ -233,7 +234,7 @@ export default function CameraPage({ telemetry }) {
 
     const newState = !infrastructureMode
     const endpoint = newState ? "/api/ai/infrastructure/enable" : "/api/ai/infrastructure/disable"
-    
+
     try {
       setIsToggling(true)
       const res = await fetch(endpoint, { method: "POST" })
@@ -260,7 +261,7 @@ export default function CameraPage({ telemetry }) {
 
     const newState = !powerlineMode
     const endpoint = newState ? "/api/ai/powerline/enable" : "/api/ai/powerline/disable"
-    
+
     try {
       setIsToggling(true)
       const res = await fetch(endpoint, { method: "POST" })
@@ -353,8 +354,8 @@ export default function CameraPage({ telemetry }) {
     // Infrastructure uses local port 9000 polling (infraAiData)
     // Powerline and Default AI use /api/ai/latest (aiData)
     const currentData = isInfra ? infraAiData : aiData;
-    const isActive = isInfra 
-      ? (infrastructureMode && infraAiData.status === "online") 
+    const isActive = isInfra
+      ? (infrastructureMode && infraAiData.status === "online")
       : (isPower || aiActive) && aiData.state !== "OFFLINE";
 
     if (!isActive || !currentData.detections || !containerRef.current) return null;
@@ -415,7 +416,7 @@ export default function CameraPage({ telemetry }) {
         <span className="font-mono text-[9px] font-black text-gray-500 uppercase tracking-widest">No Active Model</span>
       </div>
     );
-    
+
     if (pipelineStatus === "INITIALIZING") return (
       <div className="flex items-center gap-2 bg-yellow-500/20 border border-yellow-500/40 px-4 py-1.5 rounded-full backdrop-blur-md animate-pulse">
         <Activity size={10} className="text-yellow-500 animate-spin" />
@@ -489,7 +490,7 @@ export default function CameraPage({ telemetry }) {
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                   <span className="font-mono text-[8px] text-cyan-400 font-black uppercase tracking-widest">FPV_FEED_LIVE</span>
                 </div>
-                <iframe 
+                <iframe
                   src="/fpv/stream.html?src=fpv"
                   className="w-full h-full border-none pointer-events-none"
                   allow="autoplay; fullscreen"
@@ -632,7 +633,7 @@ export default function CameraPage({ telemetry }) {
                         <div className="flex items-center gap-4">
                           <div className="flex flex-col items-center">
                             <span className="font-mono text-[8px] text-gray-400 uppercase">Last Heartbeat</span>
-                            <span className="font-mono text-[10px] text-white">{lastHeartbeat ? `${Math.floor((Date.now() - lastHeartbeat)/1000)}s ago` : "NEVER"}</span>
+                            <span className="font-mono text-[10px] text-white">{lastHeartbeat ? `${Math.floor((Date.now() - lastHeartbeat) / 1000)}s ago` : "NEVER"}</span>
                           </div>
                         </div>
                       </div>
@@ -721,44 +722,48 @@ export default function CameraPage({ telemetry }) {
           {/* AI Mode Controls */}
           <section className="space-y-4">
             <div className="font-mono text-[9px] tracking-[0.25em] text-cyan-500/60 uppercase font-black mb-2 px-2">Mission Intelligence</div>
-            
+
             {/* Infrastructure Toggle */}
-            <button
-              onClick={toggleInfrastructureMode}
-              disabled={!serviceOnline || isToggling || powerlineMode}
-              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : powerlineMode ? "opacity-30 cursor-not-allowed border-white/5 bg-white/[0.02] text-gray-700" : infrastructureMode ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
-            >
-              <div className="flex flex-col items-start gap-1">
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest">
-                  {!serviceOnline ? "AI Server Offline" : "Asset Integrity"}
-                </span>
-                <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
-                  {powerlineMode ? "LOCKED_BY_GRID_MODE" : isToggling ? "VERIFYING_NODE..." : (infrastructureMode && pipelineStatus === "ONLINE") ? "INTEGRITY_PIPELINE_ACTIVE" : (infrastructureMode && pipelineStatus === "OFFLINE") ? "INTEGRITY_OFFLINE" : "STANDBY"}
-                </span>
-              </div>
-              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : (infrastructureMode && pipelineStatus === "OFFLINE") ? "bg-red-600" : infrastructureMode ? "bg-cyan-500" : "bg-white/10"}`}>
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${infrastructureMode ? "left-6" : "left-1"} ${isToggling && infrastructureMode ? "animate-pulse" : ""}`} />
-              </div>
-            </button>
+            <PermissionGate allowedRoles={["operator"]} tooltipMessage="Operator access required">
+              <button
+                onClick={toggleInfrastructureMode}
+                disabled={!serviceOnline || isToggling || powerlineMode}
+                className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : powerlineMode ? "opacity-30 cursor-not-allowed border-white/5 bg-white/[0.02] text-gray-700" : infrastructureMode ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest">
+                    {!serviceOnline ? "AI Server Offline" : "Asset Integrity"}
+                  </span>
+                  <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
+                    {powerlineMode ? "LOCKED_BY_GRID_MODE" : isToggling ? "VERIFYING_NODE..." : (infrastructureMode && pipelineStatus === "ONLINE") ? "INTEGRITY_PIPELINE_ACTIVE" : (infrastructureMode && pipelineStatus === "OFFLINE") ? "INTEGRITY_OFFLINE" : "STANDBY"}
+                  </span>
+                </div>
+                <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : (infrastructureMode && pipelineStatus === "OFFLINE") ? "bg-red-600" : infrastructureMode ? "bg-cyan-500" : "bg-white/10"}`}>
+                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${infrastructureMode ? "left-6" : "left-1"} ${isToggling && infrastructureMode ? "animate-pulse" : ""}`} />
+                </div>
+              </button>
+            </PermissionGate>
 
             {/* Powerline Toggle */}
-            <button
-              onClick={togglePowerlineMode}
-              disabled={!serviceOnline || isToggling || infrastructureMode}
-              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : infrastructureMode ? "opacity-30 cursor-not-allowed border-white/5 bg-white/[0.02] text-gray-700" : powerlineMode ? (pipelineStatus === "OFFLINE" ? "bg-red-900/20 border-red-500/40 text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.1)]" : "bg-purple-500/20 border-purple-500/40 text-purple-400 shadow-[0_0_30px_rgba(168,85,247,0.1)]") : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
-            >
-              <div className="flex flex-col items-start gap-1">
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest">
-                  {!serviceOnline ? "AI Server Offline" : "Grid Analysis"}
-                </span>
-                <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
-                  {infrastructureMode ? "LOCKED_BY_ASSET_MODE" : isToggling ? "SYNCING_MATRIX..." : (powerlineMode && pipelineStatus === "ONLINE") ? "GRID_PIPELINE_ACTIVE" : (powerlineMode && pipelineStatus === "OFFLINE") ? "GRID_OFFLINE" : "READY"}
-                </span>
-              </div>
-              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : (powerlineMode && pipelineStatus === "OFFLINE") ? "bg-red-600" : powerlineMode ? "bg-purple-500" : "bg-white/10"}`}>
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${powerlineMode ? "left-6" : "left-1"} ${isToggling && powerlineMode ? "animate-pulse" : ""}`} />
-              </div>
-            </button>
+            <PermissionGate allowedRoles={["operator"]} tooltipMessage="Operator access required">
+              <button
+                onClick={togglePowerlineMode}
+                disabled={!serviceOnline || isToggling || infrastructureMode}
+                className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${!serviceOnline ? "opacity-50 grayscale cursor-not-allowed border-red-500/20 bg-red-500/5 text-red-400" : infrastructureMode ? "opacity-30 cursor-not-allowed border-white/5 bg-white/[0.02] text-gray-700" : powerlineMode ? (pipelineStatus === "OFFLINE" ? "bg-red-900/20 border-red-500/40 text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.1)]" : "bg-purple-500/20 border-purple-500/40 text-purple-400 shadow-[0_0_30px_rgba(168,85,247,0.1)]") : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest">
+                    {!serviceOnline ? "AI Server Offline" : "Grid Analysis"}
+                  </span>
+                  <span className={`font-mono text-[8px] opacity-60 uppercase ${!serviceOnline ? "text-red-500" : ""}`}>
+                    {infrastructureMode ? "LOCKED_BY_ASSET_MODE" : isToggling ? "SYNCING_MATRIX..." : (powerlineMode && pipelineStatus === "ONLINE") ? "GRID_PIPELINE_ACTIVE" : (powerlineMode && pipelineStatus === "OFFLINE") ? "GRID_OFFLINE" : "READY"}
+                  </span>
+                </div>
+                <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${!serviceOnline ? "bg-red-900/40" : (powerlineMode && pipelineStatus === "OFFLINE") ? "bg-red-600" : powerlineMode ? "bg-purple-500" : "bg-white/10"}`}>
+                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${powerlineMode ? "left-6" : "left-1"} ${isToggling && powerlineMode ? "animate-pulse" : ""}`} />
+                </div>
+              </button>
+            </PermissionGate>
 
             {(infrastructureMode || powerlineMode) && serviceOnline && (
               <div className="mt-3 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
@@ -766,7 +771,7 @@ export default function CameraPage({ telemetry }) {
                 <span className="font-mono text-[8px] text-amber-500 uppercase font-bold tracking-widest">COLLISION_AVOIDANCE_OVERRIDDEN</span>
               </div>
             )}
-            
+
             {!serviceOnline && (
               <div className="mt-3 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-pulse">
                 <Info size={12} className="text-red-500" />
@@ -837,24 +842,26 @@ export default function CameraPage({ telemetry }) {
 
           {/* AI Report Generation Button */}
           <section className="pt-4 mt-auto">
-            <button
-              onClick={handleGenerateReport}
-              className="w-full relative group overflow-hidden rounded-2xl p-[1px] transition-all active:scale-95"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-gradient-x opacity-30 group-hover:opacity-100 transition-opacity" />
-              <div className="relative bg-[#070b14]/90 backdrop-blur-xl rounded-2xl py-4 px-6 flex items-center justify-between border border-white/10 group-hover:border-transparent transition-all">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                    <FileText size={18} />
+            <PermissionGate allowedRoles={["operator"]} tooltipMessage="Viewer mode - report generation disabled">
+              <button
+                onClick={handleGenerateReport}
+                className="w-full relative group overflow-hidden rounded-2xl p-[1px] transition-all active:scale-95"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-gradient-x opacity-30 group-hover:opacity-100 transition-opacity" />
+                <div className="relative bg-[#070b14]/90 backdrop-blur-xl rounded-2xl py-4 px-6 flex items-center justify-between border border-white/10 group-hover:border-transparent transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                      <FileText size={18} />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="font-outfit text-[11px] font-black text-white uppercase tracking-wider">Generate AI Report</span>
+                      <span className="font-mono text-[7px] text-gray-500 uppercase font-bold tracking-widest">Enterprise_Ready</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="font-outfit text-[11px] font-black text-white uppercase tracking-wider">Generate AI Report</span>
-                    <span className="font-mono text-[7px] text-gray-500 uppercase font-bold tracking-widest">Enterprise_Ready</span>
-                  </div>
+                  <ChevronRight size={16} className="text-gray-600 group-hover:translate-x-1 group-hover:text-blue-400 transition-all" />
                 </div>
-                <ChevronRight size={16} className="text-gray-600 group-hover:translate-x-1 group-hover:text-blue-400 transition-all" />
-              </div>
-            </button>
+              </button>
+            </PermissionGate>
           </section>
 
           <section>
@@ -876,18 +883,20 @@ export default function CameraPage({ telemetry }) {
 
           <section>
             <div className="font-mono text-[9px] tracking-[0.25em] text-amber-500/60 uppercase font-black mb-4 px-2">Thermal Engine</div>
-            <button
-              onClick={() => setThermalMode(!thermalMode)}
-              className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${thermalMode ? "bg-amber-500/20 border-amber-500/40 text-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
-            >
-              <div className="flex flex-col items-start gap-1">
-                <span className="font-mono text-[10px] font-black uppercase tracking-widest">Thermal Mode</span>
-                <span className="font-mono text-[8px] opacity-60 uppercase">{thermalMode ? "SENSOR_ONLINE" : "SENSOR_STANDBY"}</span>
-              </div>
-              <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${thermalMode ? "bg-amber-500" : "bg-white/10"}`}>
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${thermalMode ? "left-6" : "left-1"}`} />
-              </div>
-            </button>
+            <PermissionGate allowedRoles={["operator"]} tooltipMessage="Operator access required">
+              <button
+                onClick={() => setThermalMode(!thermalMode)}
+                className={`w-full py-4 px-6 rounded-2xl border flex items-center justify-between transition-all duration-500 ${thermalMode ? "bg-amber-500/20 border-amber-500/40 text-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.1)]" : "bg-white/[0.02] border-white/5 text-gray-500 hover:bg-white/5"}`}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <span className="font-mono text-[10px] font-black uppercase tracking-widest">Thermal Mode</span>
+                  <span className="font-mono text-[8px] opacity-60 uppercase">{thermalMode ? "SENSOR_ONLINE" : "SENSOR_STANDBY"}</span>
+                </div>
+                <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${thermalMode ? "bg-amber-500" : "bg-white/10"}`}>
+                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all duration-300 ${thermalMode ? "left-6" : "left-1"}`} />
+                </div>
+              </button>
+            </PermissionGate>
           </section>
 
           <section className="mt-auto pt-8 border-t border-white/5">
@@ -919,19 +928,19 @@ export default function CameraPage({ telemetry }) {
           <div className="w-full max-w-xl p-8 relative">
             {/* Background cinematic pulse */}
             <div className="absolute inset-0 bg-blue-500/5 rounded-[3rem] blur-3xl animate-pulse" />
-            
+
             <div className="relative bg-[#070b14]/90 border border-white/10 rounded-[3rem] p-12 shadow-2xl overflow-hidden">
-              <div className="absolute inset-0 cyber-grid opacity-[0.03]" />
-              
+              <div className="absolute inset-0 cyber-grid opacity-[0.03] pointer-events-none" />
+
               {reportState === "generating" && (
-                <div className="flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500">
+                <div className="relative z-10 flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500">
                   <div className="relative">
                     <div className="w-32 h-32 rounded-full border-4 border-blue-500/20 flex items-center justify-center">
                       <Loader2 className="text-blue-500 animate-spin" size={64} strokeWidth={1} />
                     </div>
                     <div className="absolute inset-0 w-32 h-32 rounded-full border-t-4 border-blue-500 animate-spin" />
                   </div>
-                  
+
                   <div className="space-y-4">
                     <h3 className="font-outfit text-2xl font-black text-white uppercase tracking-widest animate-pulse">
                       Synthesizing AI Analysis
@@ -950,7 +959,7 @@ export default function CameraPage({ telemetry }) {
                       <span>{reportProgress}%</span>
                     </div>
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[2px]">
-                      <div 
+                      <div
                         className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
                         style={{ width: `${reportProgress}%` }}
                       />
@@ -960,7 +969,7 @@ export default function CameraPage({ telemetry }) {
               )}
 
               {reportState === "success" && (
-                <div className="flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500">
+                <div className="relative z-10 flex flex-col items-center text-center space-y-10 animate-in zoom-in-95 duration-500">
                   <div className="w-32 h-32 rounded-full bg-green-500/10 border-4 border-green-500/20 flex items-center justify-center">
                     <ShieldCheck className="text-green-500" size={64} strokeWidth={1} />
                   </div>
@@ -981,10 +990,9 @@ export default function CameraPage({ telemetry }) {
                     </div>
                     <div className="bg-white/5 border border-white/5 p-5 rounded-3xl text-left">
                       <span className="block font-mono text-[8px] text-gray-500 uppercase font-black mb-2">Risk Level</span>
-                      <span className={`font-outfit text-lg font-black uppercase ${
-                        reportResult?.risk_level === 'CRITICAL' ? 'text-red-500' : 
-                        reportResult?.risk_level === 'HIGH' ? 'text-orange-500' : 'text-green-500'
-                      }`}>
+                      <span className={`font-outfit text-lg font-black uppercase ${reportResult?.risk_level === 'CRITICAL' ? 'text-red-500' :
+                          reportResult?.risk_level === 'HIGH' ? 'text-orange-500' : 'text-green-500'
+                        }`}>
                         {reportResult?.risk_level}
                       </span>
                     </div>
@@ -1023,7 +1031,7 @@ export default function CameraPage({ telemetry }) {
               )}
 
               {reportState === "error" && (
-                <div className="flex flex-col items-center text-center space-y-8 animate-in zoom-in-95 duration-500">
+                <div className="relative z-10 flex flex-col items-center text-center space-y-8 animate-in zoom-in-95 duration-500">
                   <div className="w-24 h-24 rounded-full bg-red-500/10 border-4 border-red-500/20 flex items-center justify-center">
                     <AlertCircle className="text-red-500" size={48} />
                   </div>
@@ -1058,4 +1066,4 @@ export default function CameraPage({ telemetry }) {
       )}
     </div>
   )
-}
+}
