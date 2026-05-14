@@ -6,7 +6,7 @@ import jwt
 from .security import decode_token
 from .models import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")   # token endpoint
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")   # token endpoint
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """
