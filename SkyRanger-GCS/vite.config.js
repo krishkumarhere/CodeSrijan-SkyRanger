@@ -23,6 +23,11 @@ export default defineConfig({
       '/api': {
         target: 'http://10.239.125.80:8000',
         changeOrigin: true,
+      },
+      '/report': {
+        target: 'http://10.239.125.80:9000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/report/, '')
       }
     }
   }

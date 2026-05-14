@@ -5,11 +5,13 @@ import {
   Loader2, RefreshCw, BarChart3, ShieldCheck, AlertTriangle
 } from "lucide-react"
 import { PermissionGate } from "./auth/PermissionGate"
+import { useAuth } from "./auth/useAuth"
 
 const THERMAL_FEED_URL = `/thermal/stream`
 const RESOLUTIONS = ["320x240", "640x480", "1280x720", "1920x1080"]
 
 export default function CameraPage({ telemetry }) {
+  const { token } = useAuth()
   const [time, setTime] = useState(new Date())
   const [streamOk, setStreamOk] = useState(true)
   const [streaming, setStreaming] = useState(true)
@@ -168,7 +170,7 @@ export default function CameraPage({ telemetry }) {
     stopInfraPolling()
     infraPollingRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`http://localhost:9000/detections`)
+        const res = await fetch(`/ai/detections`)
         const data = await res.json()
         setInfraAiData({ ...data, status: "online" })
 
@@ -318,9 +320,12 @@ export default function CameraPage({ telemetry }) {
     }, 3500)
 
     try {
-      const response = await fetch("/api/generate-report", {
+      const response = await fetch("/report/generate-report", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ prompt: "generate" }),
       })
 

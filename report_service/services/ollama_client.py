@@ -1,6 +1,6 @@
 import requests
 
-OLLAMA_URL = "http://10.239.125.66:11434/api/generate"
+OLLAMA_URL = "http://10.239.125.125:11434/api/generate"
 
 
 def generate_report(prompt):
