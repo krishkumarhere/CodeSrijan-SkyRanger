@@ -304,49 +304,10 @@ export default function CameraPage({ telemetry }) {
   }
 
   const handleGenerateReport = async () => {
-    setReportState("generating")
-    setReportProgress(0)
-    setReportMessageIndex(0)
-    setReportResult(null)
-    setReportError(null)
-
-    // Start progress and message cycles
-    const progressInterval = setInterval(() => {
-      setReportProgress(prev => (prev < 90 ? prev + Math.floor(Math.random() * 15) : 90))
-    }, 2000)
-
-    const messageInterval = setInterval(() => {
-      setReportMessageIndex(prev => (prev + 1) % reportMessages.length)
-    }, 3500)
-
-    try {
-      const response = await fetch("/report/generate-report", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ prompt: "generate" }),
-      })
-
-      if (!response.ok) throw new Error("Report generation failed")
-      const data = await response.json()
-
-      if (data.success) {
-        setReportProgress(100)
-        setReportResult(data)
-        setReportState("success")
-      } else {
-        throw new Error(data.error || "Unknown error")
-      }
-    } catch (err) {
-      console.error("Report Error:", err)
-      setReportError(err.message)
-      setReportState("error")
-    } finally {
-      clearInterval(progressInterval)
-      clearInterval(messageInterval)
-    }
+    // Disabled for Live Demo to prevent Nginx/Cloudflare timeouts
+    // and Pi resource exhaustion during computationally heavy Ollama inference.
+    setReportState("error")
+    setReportError("Live Demo Pipeline Disabled: The autonomous report generation requires intensive RTX 4050 Ollama inference. This feature is disabled for the public cloud deployment to preserve system latency and ensure stability.")
   }
 
   const showPiStream = streamOk && streaming && !thermalMode
